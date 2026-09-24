@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Care 智慧醫療站</title>
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #e0f2fe 0%, #f0fdf4 50%, #ffffff 100%);
+      --card-bg: rgba(255, 255, 255, 0.94);
+      --primary-blue: #0284c7;
+      --accent-cyan: #38bdf8;
+      --primary-green: #059669;
+      --text-main: #0f172a;
+      --text-sub: #64748b;
+      --danger-color: #ef4444;
+      --fancy-border: linear-gradient(135deg, #38bdf8, #34d399, #0284c7);
+      
+      /* 馬達按鈕配色 (冷色科技風，不含橙色) */
+      --btn-m1: linear-gradient(135deg, #4338ca 0%, #6366f1 100%); /* 靛紫藍 */
+      --btn-m2: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%); /* 翡翠綠 */
+      --btn-m3: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%); /* 科技藍 */
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: var(--text-main);
+    }
+
+    .fancy-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 28px;
+      padding: 32px 26px;
+      width: 100%;
+      max-width: 660px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 20px 50px -10px rgba(2, 132, 199, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.8);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    .fancy-card::before {
+      content: '';
+      position: absolute;
+      top: -2px; bottom: -2px; left: -2px; right: -2px;
+      background: var(--fancy-border);
+      border-radius: 30px;
+      z-index: -1;
+      opacity: 0.85;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary-blue);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .lang-select {
+      background: white;
+      border: 1.5px solid #bae6fd;
+      color: var(--primary-blue);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 5px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      outline: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    h1, h2 { margin: 0 0 8px 0; font-size: 26px; font-weight: 800; }
+    p.subtitle { margin: 0 0 20px 0; color: var(--text-sub); font-size: 14px; }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .btn {
+      padding: 14px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 6px 16px rgba(2, 132, 199, 0.15);
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(2, 132, 199, 0.25); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-blue { background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); }
+    .btn-green { background: linear-gradient(135deg, #059669 0%, #34d399 100%); }
+    .btn-gray { background: #64748b; flex-direction: row; display: inline-flex; padding: 12px 24px; border-radius: 12px; }
+
+    /* 三大馬達專屬控制面板 */
+    .motor-panel {
+      background: rgba(241, 245, 249, 0.85);
+      border-radius: 20px;
+      padding: 16px;
+      margin: 18px 0;
+      border: 1px solid #e2e8f0;
+      text-align: left;
+    }
+    .motor-panel-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #475569;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .motor-btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn-motor-single {
+      flex-direction: row;
+      justify-content: space-between;
+      padding: 12px 18px;
+      font-size: 14px;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    .btn-m1 { background: var(--btn-m1); }
+    .btn-m2 { background: var(--btn-m2); }
+    .btn-m3 { background: var(--btn-m3); }
+
+    .map-box {
+      border-radius: 20px;
+      overflow: hidden;
+      margin: 16px 0 10px;
+      height: 300px;
+      border: 2px solid #bae6fd;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+    }
+    .map-box iframe { width: 100%; height: 100%; border: none; }
+
+    .temp-gauge {
+      width: 180px;
+      height: 180px;
+      margin: 20px auto;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 6px solid #e0f2fe;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 30px rgba(2, 132, 199, 0.12);
+    }
+    #tempDisplay { font-size: 48px; font-weight: 800; color: #94a3b8; }
+
+    .alert-card {
+      background: #fef2f2;
+      border-left: 6px solid var(--danger-color);
+      padding: 16px 18px;
+      border-radius: 14px;
+      text-align: left;
+      margin-bottom: 18px;
+    }
+
+    .canvas-box {
+      max-width: 100%;
+      margin: 16px auto;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px dashed var(--accent-cyan);
+      background: #f8fafc;
+    }
+    canvas { max-width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= 視圖 1：首頁 ================= -->
+  <div class="fancy-card" id="viewHome">
+    <div class="header-bar">
+      <div class="badge-tag">SMART MEDICAL STATION</div>
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="zh-Hant">繁體中文</option>
+        <option value="zh-Hans">简体中文</option>
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+
+    <h1 data-i18n="homeTitle">全方位智慧健康站</h1>
+    <p class="subtitle" data-i18n="homeSubtitle">即時體溫檢測 • 多機構自動化給藥 • 鄰近醫療導航</p>
+
+    <!-- 模組跳轉按鈕 -->
+    <div class="btn-grid">
+      <button class="btn btn-blue" onclick="showView('viewTemp')">
+        <span style="font-size: 24px;">🌡️</span>
+        <span data-i18n="btnNavTemp">體溫量測與退熱機構</span>
+      </button>
+      <button class="btn btn-green" onclick="showView('viewWound')">
+        <span style="font-size: 24px;">🩹</span>
+        <span data-i18n="btnNavWound">傷口包紮與處置機構</span>
+      </button>
+    </div>
+
+    <!-- 首頁三大馬達獨立控制面板 (完全無橙色) -->
+    <div class="motor-panel">
+      <div class="motor-panel-title">
+        <span>⚙️</span> <span data-i18n="motorPanelTitle">機構手動驅動面板 (ESP32 Wi-Fi)</span>
+      </div>
+      <div class="motor-btn-group">
+        <button class="btn btn-motor-single btn-m1" onclick="triggerMotor(this, 'm1/fwd')">
+          <span>🌡️ <b data-i18n="btnM1">馬達 1：體溫計 / 退熱貼機構</b></span>
+          <span>旋轉 ↻</span>
+        </button>
+        <button class="btn btn-motor-single btn-m2" onclick="triggerMotor(this, 'm2/fwd')">
+          <span>🩹 <b data-i18n="btnM2">馬達 2：傷口護理 / 包紮機構</b></span>
+          <span>旋轉 ↻</span>
+        </button>
+        <button class="btn btn-motor-single btn-m3" onclick="triggerMotor(this, 'm3/fwd')">
+          <span>💊 <b data-i18n="btnM3">馬達 3：輔助監測 / 給藥機構</b></span>
+          <span>旋轉 ↻</span>
+        </button>
+      </div>
+    </div>
+
+    <div style="text-align: left; font-weight: 700; font-size: 14px; color: var(--primary-blue);" data-i18n="mapTitle">
+      📍 附近即時醫療與診所分佈
+    </div>
+    <div class="map-box">
+      <iframe id="homeMapFrame" src="" loading="lazy"></iframe>
+    </div>
+  </div>
+
+  <!-- ================= 視圖 2：體溫量測 ================= -->
+  <div class="fancy-card" id="viewTemp" style="display: none;">
+    <div class="header-bar">
+      <div class="badge-tag">BLE MONITORING</div>
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="zh-Hant">繁體中文</option>
+        <option value="zh-Hans">简体中文</option>
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+
+    <h2 data-i18n="tempTitle">體溫感測管理</h2>
+    <p class="subtitle" id="statusTemp" data-i18n="tempStatusInit">請點擊按鈕連接體溫計</p>
+
+    <div style="margin-bottom: 18px;">
+      <button class="btn btn-blue" id="btnConnectTemp" style="display: inline-flex; flex-direction: row; padding: 12px 24px; font-size: 15px;">
+        <span data-i18n="btnConnectTemp">啟動監測站 (連接體溫計)</span>
+      </button>
+    </div>
+
+    <div class="temp-gauge">
+      <div id="tempDisplay">--.-</div>
+      <div style="font-size: 13px; font-weight: 700; color: #94a3b8; margin-top: 4px;" data-i18n="tempUnit">°C 攝氏溫度</div>
+    </div>
+
+    <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 20px;" data-i18n="tempTip">
+      請將體溫計對準額頭，按下按鈕直至嗶聲響起（到達 36.0°C 自動出貼）
+    </p>
+
+    <button class="btn btn-gray" onclick="showView('viewHome')" data-i18n="btnBack">返回主頁</button>
+  </div>
+
+  <!-- ================= 視圖 3：高溫警報 (測試門檻改為 36.0°C) ================= -->
+  <div class="fancy-card" id="viewAlert" style="display: none;">
+    <div class="header-bar">
+      <div class="badge-tag" style="background: #fee2e2; color: var(--danger-color); border-color: #fca5a5;">ALERT</div>
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="zh-Hant">繁體中文</option>
+        <option value="zh-Hans">简体中文</option>
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+
+    <div class="alert-card">
+      <h3 style="margin: 0 0 6px 0; color: var(--danger-color); font-size: 17px;" data-i18n="alertTitle">⚠️ 體溫超出正常標準</h3>
+      <div style="font-size: 14px; line-height: 1.6; color: #334155;" data-i18n="alertMsg">
+        你的體溫高於36.0度，現給你一塊退熱貼，並及早到附近的醫院或診所就診。
+      </div>
+    </div>
+
+    <div id="motorStatus" style="font-weight: 700; color: var(--primary-blue); margin: 10px 0;" data-i18n="motorDispensing">
+      ⚡ 體溫達標，馬達 1 (退熱貼機構) 驅動出貼中...
+    </div>
+
+    <div class="map-box">
+      <iframe id="alertMapFrame" src="" loading="lazy"></iframe>
+    </div>
+
+    <button class="btn btn-gray" onclick="resetAndGoHome()" data-i18n="btnCloseBack">關閉並返回</button>
+  </div>
+
+  <!-- ================= 視圖 4：傷口分析 ================= -->
+  <div class="fancy-card" id="viewWound" style="display: none;">
+    <div class="header-bar">
+      <div class="badge-tag">WOUND CARE</div>
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="zh-Hant">繁體中文</option>
+        <option value="zh-Hans">简体中文</option>
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+
+    <h2 data-i18n="woundTitle">傷口處理與處置機構</h2>
+    <p class="subtitle" data-i18n="woundSubtitle">患部檢視完畢後，可驅動馬達 2 發放傷口敷料或包紮耗材</p>
+
+    <div class="canvas-box">
+      <canvas id="woundCanvas" style="min-height: 150px; background: #f1f5f9; width: 100%;"></canvas>
+    </div>
+
+    <div style="margin: 16px 0 12px 0;">
+      <button class="btn btn-motor-single btn-m2" style="width: 100%; padding: 14px 20px;" onclick="triggerMotor(this, 'm2/fwd')">
+        <span>🩹 <b data-i18n="btnM2">馬達 2：傷口護理 / 包紮機構</b></span>
+        <span>出料 ↻</span>
+      </button>
+    </div>
+
+    <div>
+      <button class="btn btn-gray" onclick="showView('viewHome')" data-i18n="btnBack">返回主頁</button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // ⚙️ 核心設定：請確認 ESP32 Wi-Fi IP 位址
+    // =========================================================================
+    const ESP32_IP = "192.168.1.100"; // 👈 請改為 Serial Monitor 印出的真實 IP
+
+    // AOJ-20A 體溫計藍牙 UUID
+    const SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
+    const CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
+
+    // 多語言字庫 (測試門檻設定為 36.0 度)
+    const I18N = {
+      'zh-Hant': {
+        homeTitle: "全方位智慧健康站",
+        homeSubtitle: "即時體溫檢測 • 多機構自動化給藥 • 鄰近醫療導航",
+        btnNavTemp: "體溫量測與退熱機構",
+        btnNavWound: "傷口包紮與處置機構",
+        motorPanelTitle: "機構手動驅動面板 (ESP32 Wi-Fi)",
+        btnM1: "馬達 1：體溫計 / 退熱貼機構",
+        btnM2: "馬達 2：傷口護理 / 包紮機構",
+        btnM3: "馬達 3：輔助監測 / 給藥機構",
+        motorRotating: "馬達運轉中...",
+        mapTitle: "📍 附近即時醫療與診所分佈",
+        tempTitle: "體溫感測管理",
+        tempStatusInit: "請點擊按鈕連接體溫計",
+        tempStatusConnected: "體溫計已連線 ✓ 請按下測量鍵",
+        btnConnectTemp: "啟動監測站 (連接體溫計)",
+        tempUnit: "°C 攝氏溫度",
+        tempTip: "請將體溫計對準額頭，按下按鈕直至嗶聲響起（到達 36.0°C 自動出貼）",
+        btnBack: "返回主頁",
+        alertTitle: "⚠️ 體溫超出正常標準",
+        alertMsg: "你的體溫高於36.0度，現給你一塊退熱貼，並及早到附近的醫院或診所就診。",
+        motorDispensing: "⚡ 體溫達標，馬達 1 (退熱貼機構) 驅動出貼中...",
+        btnCloseBack: "關閉並返回",
+        woundTitle: "傷口處理與處置機構",
+        woundSubtitle: "患部檢視完畢後，可驅動馬達 2 發放傷口敷料或包紮耗材",
+        mapQuery: "醫院+診所"
+      },
+      'zh-Hans': {
+        homeTitle: "全方位智慧健康站",
+        homeSubtitle: "实时体温检测 • 多机构自动化给药 • 邻近医疗导航",
+        btnNavTemp: "体温量测与退热机构",
+        btnNavWound: "伤口包扎与处置机构",
+        motorPanelTitle: "机构手动驱动面板 (ESP32 Wi-Fi)",
+        btnM1: "马达 1：体温计 / 退热贴机构",
+        btnM2: "马达 2：伤口护理 / 包扎机构",
+        btnM3: "马达 3：辅助监测 / 给药机构",
+        motorRotating: "马达运转中...",
+        mapTitle: "📍 附近即时医疗与诊所分布",
+        tempTitle: "体温感测管理",
+        tempStatusInit: "请点击按钮连接体温计",
+        tempStatusConnected: "体温计已连线 ✓ 请按下测量键",
+        btnConnectTemp: "启动监测站 (连接体温计)",
+        tempUnit: "°C 摄氏温度",
+        tempTip: "请将体温计对准额头，按下按钮直至哔声响起（到达 36.0°C 自动出贴）",
+        btnBack: "返回主页",
+        alertTitle: "⚠️ 体温超出正常标准",
+        alertMsg: "你的体温高于36.0度，现给你一块退热贴，并及早到附近的医院或诊所就诊。",
+        motorDispensing: "⚡ 体温达标，马达 1 (退热贴机构) 驱动出贴中...",
+        btnCloseBack: "关闭并返回",
+        woundTitle: "伤口处理与处置机构",
+        woundSubtitle: "患部检视完毕后，可驱动马达 2 发放伤口敷料或包扎耗材",
+        mapQuery: "医院+诊所"
+      },
+      'en': {
+        homeTitle: "Smart Healthcare Station",
+        homeSubtitle: "Real-time Body Temp • Automated Dispenser • Nearby Navigation",
+        btnNavTemp: "Temp Monitor & Cooling Patch",
+        btnNavWound: "Wound Dressing Mechanism",
+        motorPanelTitle: "Manual Motor Actuators (ESP32 Wi-Fi)",
+        btnM1: "Motor 1: Thermometer / Cooling Patch",
+        btnM2: "Motor 2: Wound Care / Dressing",
+        btnM3: "Motor 3: Aux Monitor / Medicine",
+        motorRotating: "Motor running...",
+        mapTitle: "📍 Nearby Medical Facilities & Clinics",
+        tempTitle: "Temperature Monitor",
+        tempStatusInit: "Please connect thermometer",
+        tempStatusConnected: "Thermometer connected ✓ Press measure button",
+        btnConnectTemp: "Start Station (Connect Thermometer)",
+        tempUnit: "°C Celsius",
+        tempTip: "Aim thermometer at forehead and press (auto-dispenses at 36.0°C)",
+        btnBack: "Back to Home",
+        alertTitle: "⚠️ Temperature Above Normal",
+        alertMsg: "Your temperature is above 36.0°C. A cooling patch has been dispensed. Please visit a nearby clinic promptly.",
+        motorDispensing: "⚡ Threshold reached, Motor 1 dispensing patch...",
+        btnCloseBack: "Close and Return",
+        woundTitle: "Wound Care & Dressing",
+        woundSubtitle: "Trigger Motor 2 to dispense wound care dressing materials",
+        mapQuery: "hospital+clinic"
+      },
+      'pt': {
+        homeTitle: "Posto de Saúde Inteligente",
+        homeSubtitle: "Medição de Temp. • Mecanismos Automáticos • Navegação Médica",
+        btnNavTemp: "Monitor de Temp. e Adesivo",
+        btnNavWound: "Tratamento de Feridas",
+        motorPanelTitle: "Painel de Controlo dos Motores (ESP32 Wi-Fi)",
+        btnM1: "Motor 1: Termómetro / Adesivo Refrescante",
+        btnM2: "Motor 2: Tratamento de Feridas",
+        btnM3: "Motor 3: Monitorização / Medicamentos",
+        motorRotating: "Motor em movimento...",
+        mapTitle: "📍 Clínicas e Hospitais nas Proximidades",
+        tempTitle: "Gestão de Temperatura",
+        tempStatusInit: "Ligue o termómetro",
+        tempStatusConnected: "Termómetro ligado ✓ Prima para medir",
+        btnConnectTemp: "Iniciar Estação (Ligar Termómetro)",
+        tempUnit: "°C Graus Celsius",
+        tempTip: "Aponte para a testa e prima (dispensa automática a 36.0°C)",
+        btnBack: "Voltar ao Início",
+        alertTitle: "⚠️ Temperatura Acima do Normal",
+        alertMsg: "A sua temperatura está acima de 36.0°C. Foi fornecido um adesivo refrescante. Por favor, consulte um médico.",
+        motorDispensing: "⚡ Limite atingido, Motor 1 a libertar adesivo...",
+        btnCloseBack: "Fechar e Voltar",
+        woundTitle: "Tratamento de Feridas",
+        woundSubtitle: "Acione o Motor 2 para dispensar pensos e materiais de tratamento",
+        mapQuery: "hospital+clinica"
+      }
+    };
+
+    let currentLang = localStorage.getItem('smart_care_lang') || 'zh-Hant';
+    let currentCoords = null;
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('smart_care_lang', lang);
+      document.querySelectorAll('.lang-select').forEach(sel => sel.value = lang);
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (I18N[lang] && I18N[lang][key]) el.textContent = I18N[lang][key];
+      });
+      updateMaps();
+    }
+
+    function showView(targetId) {
+      ['viewHome', 'viewTemp', 'viewAlert', 'viewWound'].forEach(id => {
+        document.getElementById(id).style.display = (id === targetId) ? 'block' : 'none';
+      });
+    }
+
+    function resetAndGoHome() {
+      document.getElementById('tempDisplay').textContent = '--.-';
+      document.getElementById('tempDisplay').style.color = '#94a3b8';
+      showView('viewHome');
+    }
+
+    // 發送 Wi-Fi 指令至 ESP32
+    function sendCommandToESP32(endpoint) {
+      fetch(`http://${ESP32_IP}/${endpoint}`, { mode: 'no-cors' })
+        .then(() => console.log(`已向 ESP32 發送路徑: /${endpoint}`))
+        .catch(err => console.error('ESP32 連線異常:', err));
+    }
+
+    // 通用馬達按鈕觸發器 (帶防重複點擊鎖定)
+    function triggerMotor(buttonElement, endpoint) {
+      sendCommandToESP32(endpoint);
+
+      if (buttonElement) {
+        const originalHTML = buttonElement.innerHTML;
+        buttonElement.innerHTML = `<span>🔄 <b>${I18N[currentLang].motorRotating}</b></span> <span>...</span>`;
+        buttonElement.style.opacity = '0.65';
+        buttonElement.disabled = true;
+
+        setTimeout(() => {
+          buttonElement.innerHTML = originalHTML;
+          buttonElement.style.opacity = '1';
+          buttonElement.disabled = false;
+        }, 2200);
+      }
+    }
+
+    // 體溫達標自動觸發馬達 1
+    function triggerFeverResponse() {
+      showView('viewAlert');
+      sendCommandToESP32('m1/fwd'); // 自動觸發馬達 1 正轉
+    }
+
+    // 連接體溫計 (AOJ-20A)
+    document.getElementById('btnConnectTemp').addEventListener('click', async () => {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [SERVICE_UUID]
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        const char = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        
+        char.addEventListener('characteristicvaluechanged', e => {
+          const bytes = new Uint8Array(e.target.value.buffer);
+          if (bytes.length >= 6 && bytes[0] === 0xAA && bytes[2] === 0xC1) {
+            const temp = ((bytes[4] << 8) | bytes[5]) / 100.0;
+            if (temp >= 30.0 && temp <= 45.0) {
+              const display = document.getElementById('tempDisplay');
+              display.textContent = temp.toFixed(1);
+              
+              // ⚠️ 測試門檻：目前設為 36.0 度 (測完後改回 37.5 即可)
+              if (temp >= 36.0) {
+                display.style.color = 'var(--danger-color)';
+                triggerFeverResponse();
+              } else {
+                display.style.color = 'var(--primary-green)';
+              }
+            }
+          }
+        });
+
+        await char.startNotifications();
+        document.getElementById('statusTemp').textContent = I18N[currentLang].tempStatusConnected;
+        document.getElementById('btnConnectTemp').style.display = 'none';
+      } catch (err) {
+        alert('體溫計連線失敗: ' + err.message);
+      }
+    });
+
+    // 定位與醫療地圖更新
+    function updateMaps() {
+      const q = I18N[currentLang]?.mapQuery || "醫院+診所";
+      if (currentCoords) {
+        const url = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&ll=${currentCoords.latitude},${currentCoords.longitude}&z=14&output=embed`;
+        document.getElementById('homeMapFrame').src = url;
+        document.getElementById('alertMapFrame').src = url;
+      } else {
+        const fallback = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+        document.getElementById('homeMapFrame').src = fallback;
+        document.getElementById('alertMapFrame').src = fallback;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setLanguage(currentLang);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            currentCoords = pos.coords;
+            updateMaps();
+          },
+          () => { updateMaps(); }
+        );
+      }
+    });
+  </script>
+</body>
+</html>
