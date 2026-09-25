@@ -1,0 +1,830 @@
+/* =========================================================================
+   Smart Care — components layer
+   Buttons, badges, motor panel, temp gauge, map box, alert card, device
+   cards, status pills, the <dialog> settings surface, forms and toasts.
+   All values trace back to the original inline <style>; no inline style=""
+   attributes remain in index.html.
+   ========================================================================= */
+
+/* =========================================================================
+   Buttons
+   ========================================================================= */
+
+.btn {
+  padding: 14px 16px;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--duration-base) var(--ease-standard);
+  box-shadow: var(--shadow-btn);
+  min-height: var(--tap-target);
+  text-align: center;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-blue {
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+}
+
+.btn-green {
+  background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+}
+
+.btn-gray {
+  background: #64748b;
+  flex-direction: row;
+  display: inline-flex;
+  padding: 12px 24px;
+  border-radius: var(--radius-sm);
+}
+
+/* solid semantic buttons used by the settings dialog */
+.btn-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  flex-direction: row;
+  display: inline-flex;
+  padding: 12px 22px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);
+  flex-direction: row;
+  display: inline-flex;
+  padding: 12px 22px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-outline {
+  background: #ffffff;
+  color: var(--primary-blue);
+  border: 1.5px solid var(--border-accent);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  display: inline-flex;
+  padding: 10px 18px;
+  min-height: var(--tap-target); /* WCAG 2.5.5: >=44px tap target (was implicit) */
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-outline:hover {
+  box-shadow: var(--shadow-btn);
+}
+
+/* --- layout helpers for button groups ----------------------------------- */
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-row--end {
+  justify-content: flex-end;
+}
+
+.btn-row .btn,
+.btn-row .btn-primary,
+.btn-row .btn-danger,
+.btn-row .btn-outline,
+.btn-row .btn-gray {
+  flex-direction: row;
+  display: inline-flex;
+  padding: 10px 16px;
+  font-size: var(--font-size-base);
+  border-radius: var(--radius-sm);
+}
+
+/* --- icon-only button (Settings gear, dialog close) --------------------- */
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  min-width: var(--tap-target);
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-accent);
+  background: #ffffff;
+  color: var(--primary-blue);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+  box-shadow: var(--shadow-soft);
+}
+
+.icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-btn);
+}
+
+/* =========================================================================
+   Badge + language select
+   ========================================================================= */
+
+.badge-tag {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--primary-blue);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  white-space: nowrap;
+}
+
+/* alert variant — replaces the original inline style on the ALERT badge */
+.badge-tag--alert {
+  background: var(--danger-soft-strong);
+  color: var(--danger-color);
+  border-color: var(--border-danger);
+}
+
+.lang-select,
+.select {
+  background: #ffffff;
+  border: 1.5px solid var(--border-accent);
+  color: var(--primary-blue);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  min-height: var(--tap-target); /* WCAG 2.5.5: >=44px tap target (was 36px) */
+}
+
+/* =========================================================================
+   Motor panel (home view)
+   ========================================================================= */
+
+.motor-panel {
+  background: var(--surface-muted);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin: 18px 0;
+  border: 1px solid var(--border-soft);
+  text-align: left;
+}
+
+.motor-panel-title {
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  color: #475569;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.motor-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-motor-single {
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 12px 18px;
+  font-size: var(--font-size-base);
+  border-radius: 14px;
+  box-shadow: var(--shadow-elevated);
+  text-align: left;
+}
+
+.btn-m1 { background: var(--btn-m1); }
+.btn-m2 { background: var(--btn-m2); }
+.btn-m3 { background: var(--btn-m3); }
+
+/* =========================================================================
+   Temperature gauge
+   ========================================================================= */
+
+.temp-gauge {
+  width: 180px;
+  height: 180px;
+  margin: 20px auto;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 6px solid #e0f2fe;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-gauge);
+}
+
+.temp-display {
+  font-size: var(--font-size-gauge);
+  font-weight: 800;
+  color: var(--text-muted); /* idle: #94a3b8 */
+  transition: color var(--duration-base) var(--ease-standard);
+}
+
+/* state modifiers used by the view logic (never colour alone — text is shown) */
+.temp-display--ok { color: var(--primary-green); }
+.temp-display--danger { color: var(--danger-color); }
+.temp-display--idle { color: var(--text-muted); }
+
+.temp-unit {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* =========================================================================
+   Map box
+   ========================================================================= */
+
+.map-box {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin: 16px 0 10px;
+  height: 300px;
+  border: 2px solid var(--border-accent);
+  box-shadow: var(--shadow-soft);
+  background: var(--surface-soft);
+}
+
+.map-box iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.map-title {
+  text-align: left;
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  color: var(--primary-blue);
+}
+
+/* =========================================================================
+   Alert view
+   ========================================================================= */
+
+.alert-card {
+  background: var(--danger-soft);
+  border-left: 6px solid var(--danger-color);
+  padding: 16px 18px;
+  border-radius: 14px;
+  text-align: left;
+  margin-bottom: 18px;
+}
+
+.alert-card__title {
+  margin: 0 0 6px 0;
+  color: var(--danger-color);
+  font-size: var(--font-size-lg);
+}
+
+.alert-card__body {
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--neutral-strong);
+}
+
+.motor-status {
+  font-weight: 700;
+  color: var(--primary-blue);
+  margin: 10px 0;
+}
+
+/* =========================================================================
+   Wound view — .canvas-box illustration (replaces the dead #woundCanvas)
+   ========================================================================= */
+
+.canvas-box {
+  max-width: 100%;
+  margin: 16px auto;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px dashed var(--accent-cyan);
+  background: var(--surface-soft);
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.canvas-illustration {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  color: var(--primary-blue);
+}
+
+/* =========================================================================
+   Status pills (thermometer / dispenser / health-kit aggregate)
+   Always paired with text + icon — never colour alone.
+   ========================================================================= */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+.status-pill--ok {
+  background: var(--ok-soft);
+  border-color: var(--ok-border);
+  color: var(--ok-strong);
+}
+
+.status-pill--pending {
+  background: var(--warn-soft);
+  border-color: var(--warn-border);
+  color: var(--warn-strong);
+}
+
+.status-pill--error {
+  background: var(--danger-soft);
+  border-color: var(--border-danger);
+  color: var(--danger-strong);
+}
+
+.status-pill--info {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: var(--primary-blue);
+}
+
+.status-pill--muted {
+  background: var(--surface-soft);
+  border-color: var(--border-soft);
+  color: var(--text-sub);
+}
+
+/* =========================================================================
+   Dialog (native <dialog id="settingsDialog">)
+   ========================================================================= */
+
+.settings-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(90vh, 900px);
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-dialog);
+  color: var(--text-main);
+  text-align: left;
+  overflow: hidden;
+}
+
+.settings-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.settings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dialog__header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.dialog__body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dialog__section {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dialog__section:last-child {
+  border-bottom: none;
+}
+
+.dialog__section > h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-base);
+  color: var(--neutral-strong);
+  margin-bottom: 10px;
+}
+
+/* =========================================================================
+   Device cards (settings dialog hardware section)
+   ========================================================================= */
+
+.device-card {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.device-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 800;
+  font-size: var(--font-size-base);
+  margin-bottom: 8px;
+}
+
+.device-card__meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-sub);
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+/* =========================================================================
+   Forms
+   ========================================================================= */
+
+.field {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.field > label,
+label.field-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--neutral-strong);
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+input[type='text'],
+input[type='number'],
+input[type='url'],
+select.select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-soft);
+  background: #ffffff;
+  font-size: var(--font-size-base);
+  min-height: var(--tap-target);
+}
+
+input[type='text']:focus,
+input[type='number']:focus,
+select.select:focus {
+  border-color: var(--accent-cyan);
+  outline: none;
+}
+
+/* invalid state + inline field error (replaces the original blocking alert) */
+.field--invalid input,
+.field--invalid select,
+input[aria-invalid='true'] {
+  border-color: var(--danger-color);
+  background: var(--danger-soft);
+}
+
+/* non-blocking warning state (soft advisory — deliberately NOT the error style) */
+.field--warning input,
+.field--warning select {
+  border-color: var(--warn-border);
+  background: var(--warn-soft);
+}
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--danger-strong);
+  text-align: left;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+.field-warning {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn-strong);
+  text-align: left;
+}
+
+.field-warning:empty {
+  display: none;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--neutral-strong);
+  margin: 8px 0;
+}
+
+.checkbox-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary-blue);
+}
+
+/* --- advanced (collapsible) --------------------------------------------- */
+
+.advanced {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  margin-top: 8px;
+}
+
+.advanced > summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: var(--font-size-sm);
+  color: var(--neutral-strong);
+}
+
+.advanced[open] > summary {
+  margin-bottom: 10px;
+}
+
+/* --- guided connect wizard --------------------------------------------- */
+
+.wizard {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: wizard-step;
+}
+
+.wizard__step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  margin-bottom: 8px;
+}
+
+.wizard__step-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--neutral-strong);
+}
+
+.wizard__step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  font-size: 12px;
+}
+
+.wizard__step-icon--ok {
+  background: var(--ok-soft);
+  border-color: var(--ok-border);
+  color: var(--ok-strong);
+}
+
+.wizard__step-icon--error {
+  background: var(--danger-soft);
+  border-color: var(--border-danger);
+  color: var(--danger-strong);
+}
+
+.wizard__step-icon--pending {
+  background: var(--warn-soft);
+  border-color: var(--warn-border);
+  color: var(--warn-strong);
+}
+
+/* =========================================================================
+   Toasts (replaces window.alert())
+   ========================================================================= */
+
+.toast-container {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: var(--z-toast);
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  border-left: 5px solid var(--primary-blue);
+  box-shadow: var(--shadow-toast);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-main);
+  text-align: left;
+  pointer-events: auto;
+  animation: toast-in var(--duration-base) var(--ease-standard);
+}
+
+.toast__icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.toast__message {
+  flex: 1 1 auto;
+  word-break: break-word;
+}
+
+.toast__close {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+.toast--success { border-left-color: var(--primary-green); }
+.toast--error { border-left-color: var(--danger-color); }
+.toast--warning { border-left-color: var(--warn-strong); }
+.toast--info { border-left-color: var(--primary-blue); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================================
+   Responsive component tuning
+   ========================================================================= */
+
+@media (max-width: 640px) {
+  .btn-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .temp-gauge {
+    width: 150px;
+    height: 150px;
+    border-width: 5px;
+  }
+
+  .temp-display {
+    font-size: 38px;
+  }
+
+  .map-box {
+    height: 240px;
+  }
+
+  .settings-dialog {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .dialog__footer {
+    flex-direction: column-reverse;
+  }
+
+  .dialog__footer .btn,
+  .dialog__footer .btn-primary,
+  .dialog__footer .btn-danger,
+  .dialog__footer .btn-gray {
+    width: 100%;
+  }
+
+  .btn-row .btn,
+  .btn-row .btn-primary,
+  .btn-row .btn-danger,
+  .btn-row .btn-outline,
+  .btn-row .btn-gray {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .temp-gauge {
+    width: 200px;
+    height: 200px;
+  }
+
+  .temp-display {
+    font-size: 54px;
+  }
+
+  .map-box {
+    height: 340px;
+  }
+}

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Smart Care 智慧醫療站</title>
+  <meta name="description" content="全方位智慧健康站 — 即時體溫檢測 • 多機構自動化給藥 • 鄰近醫療導航">
+
+  <!-- Layered CSS (blueprint S2). No inline styles, no JS in CSS. -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/utilities.css">
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <!-- =====================================================================
+         SINGLE SHARED HEADER (blueprint §3.1)
+         Replaces the original's four duplicated .header-bar blocks:
+         dynamic per-view badge + ONE language <select> + Settings button
+         + aggregate Health Kit indicator.
+         The router sets #appBadge text and the --alert variant on view:changed.
+         ===================================================================== -->
+    <header class="app-header" id="appHeader">
+      <div class="app-header__left">
+        <div class="badge-tag" id="appBadge">SMART MEDICAL STATION</div>
+        <span class="status-pill status-pill--muted" id="healthKitPill" role="status" aria-live="polite"
+              data-i18n="healthkit.indicator.partial">部分硬體未連接</span>
+      </div>
+      <div class="header-actions">
+        <select class="lang-select" id="langSelect" aria-label="Language"
+                data-i18n-attr="aria-label:settings.language.label">
+          <option value="zh-Hant">繁體中文</option>
+          <option value="zh-Hans">简体中文</option>
+          <option value="en">English</option>
+          <option value="pt">Português</option>
+        </select>
+        <button type="button" class="icon-btn" id="btnOpenSettings" data-action="open-settings"
+                aria-label="設定" title="設定" aria-haspopup="dialog" aria-controls="settingsDialog"
+                data-i18n-attr="aria-label:settings.open,title:settings.open">⚙️</button>
+      </div>
+    </header>
+
+    <main class="view-container" id="viewContainer">
+
+      <!-- ================= 視圖 1：首頁 (viewHome) ================= -->
+      <section class="fancy-card view is-active" id="viewHome"
+               data-badge="SMART MEDICAL STATION" data-badge-variant="default"
+               aria-labelledby="homeTitle">
+
+        <h1 id="homeTitle" data-i18n="homeTitle">全方位智慧健康站</h1>
+        <p class="subtitle" data-i18n="homeSubtitle">即時體溫檢測 • 多機構自動化給藥 • 鄰近醫療導航</p>
+
+        <!-- 模組跳轉按鈕 -->
+        <div class="btn-grid">
+          <button type="button" class="btn btn-blue" data-view="viewTemp">
+            <span class="icon-lg">🌡️</span>
+            <span data-i18n="btnNavTemp">體溫量測與退熱機構</span>
+          </button>
+          <button type="button" class="btn btn-green" data-view="viewWound">
+            <span class="icon-lg">🩹</span>
+            <span data-i18n="btnNavWound">傷口包紮與處置機構</span>
+          </button>
+        </div>
+
+        <!-- 首頁三大馬達獨立控制面板 (完全無橙色) -->
+        <div class="motor-panel">
+          <div class="motor-panel-title">
+            <span>⚙️</span> <span data-i18n="motorPanelTitle">機構手動驅動面板 (ESP32 Wi-Fi)</span>
+          </div>
+          <div class="motor-btn-group">
+            <button type="button" class="btn btn-motor-single btn-m1"
+                    data-action="motor" data-motor="M1" data-endpoint="m1/fwd">
+              <span>🌡️ <b data-i18n="btnM1">馬達 1：體溫計 / 退熱貼機構</b></span>
+              <span>旋轉 ↻</span>
+            </button>
+            <button type="button" class="btn btn-motor-single btn-m2"
+                    data-action="motor" data-motor="M2" data-endpoint="m2/fwd">
+              <span>🩹 <b data-i18n="btnM2">馬達 2：傷口護理 / 包紮機構</b></span>
+              <span>旋轉 ↻</span>
+            </button>
+            <button type="button" class="btn btn-motor-single btn-m3"
+                    data-action="motor" data-motor="M3" data-endpoint="m3/fwd">
+              <span>💊 <b data-i18n="btnM3">馬達 3：輔助監測 / 給藥機構</b></span>
+              <span>旋轉 ↻</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Primary Health Kit entry point (opens the Settings dialog wizard) -->
+        <div class="my-4">
+          <button type="button" class="btn btn-gray" data-action="open-healthkit"
+                  data-i18n="healthkit.connect">連接健康套件</button>
+        </div>
+
+        <div class="map-title" data-i18n="mapTitle">📍 附近即時醫療與診所分佈</div>
+        <div class="map-box">
+          <!-- src is intentionally empty: js/ui/maps.js sets it lazily when the view is shown -->
+          <iframe id="homeMapFrame" title="附近醫療地圖" data-i18n-attr="title:mapTitle"
+                  src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+      </section>
+
+      <!-- ================= 視圖 2：體溫量測 (viewTemp) ================= -->
+      <section class="fancy-card view" id="viewTemp"
+               data-badge="BLE MONITORING" data-badge-variant="default"
+               aria-labelledby="tempTitle">
+
+        <h2 id="tempTitle" data-i18n="tempTitle">體溫感測管理</h2>
+        <p class="subtitle" id="statusTemp" role="status" aria-live="polite"
+           data-i18n="tempStatusInit">請點擊按鈕連接體溫計</p>
+
+        <div class="mb-4">
+          <button type="button" class="btn btn-blue inline-pill-btn" id="btnConnectTemp"
+                  data-action="connect-thermometer">
+            <span data-i18n="btnConnectTemp">啟動監測站 (連接體溫計)</span>
+          </button>
+        </div>
+
+        <div class="temp-gauge">
+          <div id="tempDisplay" class="temp-display temp-display--idle"
+               role="status" aria-live="polite">--.-</div>
+          <div class="temp-unit" data-i18n="tempUnit">°C 攝氏溫度</div>
+        </div>
+
+        <p class="hint" id="tempTip" data-i18n="tempTip">
+          請將體溫計對準額頭，按下按鈕直至嗶聲響起（到達 {threshold}°C 自動出貼）
+        </p>
+
+        <div class="mt-5">
+          <button type="button" class="btn btn-gray" data-view="viewHome" data-i18n="btnBack">返回主頁</button>
+        </div>
+      </section>
+
+      <!-- ================= 視圖 3：高溫警報 (viewAlert) ================= -->
+      <section class="fancy-card view" id="viewAlert"
+               data-badge="ALERT" data-badge-variant="alert"
+               aria-labelledby="alertTitle">
+
+        <div class="alert-card" role="alert">
+          <h3 class="alert-card__title" id="alertTitle" data-i18n="alertTitle">⚠️ 體溫超出正常標準</h3>
+          <div class="alert-card__body" id="alertMsg" data-i18n="alertMsg">
+            你的體溫高於{threshold}度，現給你一塊退熱貼，並及早到附近的醫院或診所就診。
+          </div>
+        </div>
+
+        <div id="motorStatus" class="motor-status" role="status" aria-live="polite"
+             data-i18n="motorDispensing">
+          ⚡ 體溫達標，馬達 1 (退熱貼機構) 驅動出貼中...
+        </div>
+
+        <div class="map-box">
+          <!-- src is intentionally empty: js/ui/maps.js sets it lazily when the view is shown -->
+          <iframe id="alertMapFrame" title="附近醫療地圖" data-i18n-attr="title:mapTitle"
+                  src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+
+        <div class="mt-4">
+          <button type="button" class="btn btn-gray" id="btnAlertBack" data-action="reset-home"
+                  data-i18n="btnCloseBack">關閉並返回</button>
+        </div>
+      </section>
+
+     <!-- ================= 視圖 4：傷口分析 (viewWound) ================= -->
+<section class="fancy-card view" id="viewWound"
+         data-badge="WOUND CARE" data-badge-variant="default"
+         aria-labelledby="woundTitle">
+
+  <h2 id="woundTitle" data-i18n="woundTitle">傷口處理與處置機構</h2>
+  <p class="subtitle" data-i18n="woundSubtitle">對準患部進行檢視，辨識出傷口將自動驅動馬達 2 發放敷料</p>
+
+  <!-- 相機預覽與擷取畫布區域 -->
+  <div class="camera-container" style="position: relative; max-width: 320px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: #000;">
+    <video id="woundVideo" autoplay playsinline muted style="width: 100%; display: block;"></video>
+    <canvas id="woundCanvas" style="display: none;"></canvas>
+    <!-- 辨識中遮罩/框線 -->
+    <div id="scanOverlay" style="position: absolute; inset: 0; border: 2px dashed rgba(255,255,255,0.6); pointer-events: none; border-radius: 16px;"></div>
+  </div>
+
+  <!-- 狀態提示文字 -->
+  <p id="woundStatusText" style="margin-top: 12px; font-weight: bold; color: #4b5563;">請點擊下方開啟相機</p>
+
+  <!-- 按鈕操作群組 -->
+  <div class="my-4" style="display: flex; gap: 10px; justify-content: center;">
+    <button type="button" class="btn btn-blue" id="btnStartCamera">📷 開啟相機</button>
+    <button type="button" class="btn btn-green" id="btnCaptureAnalyze" disabled>🔍 拍照並檢驗傷口</button>
+  </div>
+
+  <!-- 手動強制出料按鈕 -->
+  <div class="my-4">
+    <button type="button" class="btn btn-motor-single btn-m2 w-full"
+            data-action="motor" data-motor="M2" data-endpoint="m2/fwd">
+      <span>🩹 <b data-i18n="btnM2">馬達 2：傷口護理 / 包紮機構</b></span>
+      <span>手動出料 ↻</span>
+    </button>
+  </div>
+
+  <div>
+    <button type="button" class="btn btn-gray" data-view="viewHome" data-i18n="btnBack">返回主頁</button>
+  </div>
+</section>
+
+    </main>
+  </div>
+
+  <!-- =======================================================================
+       SETTINGS DIALOG (blueprint §3.2)
+       Native <dialog>: built-in modal semantics, ESC-to-close, focus handling.
+       Markup only here — behaviour is wired by js/ui/settings.js.
+       ======================================================================= -->
+  <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
+
+    <header class="dialog__header">
+      <h2 id="settingsTitle" data-i18n="settings.title">系統設定</h2>
+      <button type="button" class="icon-btn" data-action="close" aria-label="關閉" title="關閉"
+              data-i18n-attr="aria-label:settings.close,title:settings.close">✕</button>
+    </header>
+
+    <div class="dialog__body">
+
+      <!-- ---------- Section A: Language & Display ---------- -->
+      <section class="dialog__section" aria-labelledby="secLang">
+        <h3 id="secLang"><span aria-hidden="true">🌐</span> <span data-i18n="settings.section.language">語言與顯示</span></h3>
+        <div class="field">
+          <label for="settingsLang" data-i18n="settings.language.label">語言</label>
+          <select id="settingsLang" class="select">
+            <option value="zh-Hant">繁體中文</option>
+            <option value="zh-Hans">简体中文</option>
+            <option value="en">English</option>
+            <option value="pt">Português</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- ---------- Section B: Health Kit Hardware ---------- -->
+      <section class="dialog__section" aria-labelledby="secHardware">
+        <h3 id="secHardware"><span aria-hidden="true">🩺</span> <span data-i18n="settings.section.hardware">健康套件硬體</span></h3>
+
+        <!-- B0: guided connect flow (blueprint §3.3) -->
+        <div class="device-card" id="cardWizard">
+          <div class="device-card__head">
+            <span data-i18n="settings.section.wizard">快速連接精靈</span>
+            <button type="button" class="btn btn-primary" data-action="healthkit-connect"
+                    data-i18n="healthkit.connect">連接健康套件</button>
+          </div>
+          <ol class="wizard" id="healthkitWizard">
+            <li class="wizard__step" data-step="1" id="wizStep1">
+              <span class="wizard__step-label">
+                <span class="wizard__step-icon" id="wizStep1Icon" aria-hidden="true">1</span>
+                <span data-i18n="settings.wizard.step1">檢查瀏覽器與安全來源</span>
+              </span>
+              <span class="status-pill status-pill--muted" id="wizStep1Pill" role="status" aria-live="polite"
+                    data-i18n="esp32.status.unknown">尚未測試</span>
+            </li>
+            <li class="wizard__step" data-step="2" id="wizStep2">
+              <span class="wizard__step-label">
+                <span class="wizard__step-icon" id="wizStep2Icon" aria-hidden="true">2</span>
+                <span data-i18n="settings.wizard.step2">連接藍牙體溫計</span>
+              </span>
+              <span class="status-pill status-pill--muted" id="wizStep2Pill" role="status" aria-live="polite"
+                    data-i18n="ble.status.disconnected">未連接</span>
+            </li>
+            <li class="wizard__step" data-step="3" id="wizStep3">
+              <span class="wizard__step-label">
+                <span class="wizard__step-icon" id="wizStep3Icon" aria-hidden="true">3</span>
+                <span data-i18n="settings.wizard.step3">設定出貼模組</span>
+              </span>
+              <span class="status-pill status-pill--muted" id="wizStep3Pill" role="status" aria-live="polite"
+                    data-i18n="esp32.status.notConfigured">尚未設定</span>
+            </li>
+            <li class="wizard__step" data-step="4" id="wizStep4">
+              <span class="wizard__step-label">
+                <span class="wizard__step-icon" id="wizStep4Icon" aria-hidden="true">4</span>
+                <span data-i18n="settings.wizard.step4">驗證即時讀數與馬達</span>
+              </span>
+              <span class="status-pill status-pill--muted" id="wizStep4Pill" role="status" aria-live="polite"
+                    data-i18n="esp32.status.unknown">尚未測試</span>
+            </li>
+          </ol>
+          <p class="hint" id="wizardHint"></p>
+        </div>
+
+        <!-- B1: Thermometer (BLE) -->
+        <div class="device-card" id="cardThermometer">
+          <div class="device-card__head">
+            <span><span aria-hidden="true">🌡️</span> <span data-i18n="settings.thermometer.title">藍牙體溫計</span></span>
+            <span class="status-pill status-pill--muted" id="bleStatusPill" role="status" aria-live="polite"
+                  data-i18n="ble.status.disconnected">未連接</span>
+          </div>
+          <div class="device-card__meta" id="bleDeviceName"></div>
+          <div class="btn-row">
+            <button type="button" class="btn-outline" data-action="ble-connect"
+                    data-i18n="settings.thermometer.connect">連接 / 配對</button>
+            <button type="button" class="btn-outline" data-action="ble-disconnect"
+                    data-i18n="settings.thermometer.disconnect">中斷連線</button>
+            <button type="button" class="btn-outline" data-action="ble-reconnect"
+                    data-i18n="settings.thermometer.reconnect">重新連接</button>
+            <button type="button" class="btn-outline" data-action="ble-forget"
+                    data-i18n="settings.thermometer.forget">忘記裝置</button>
+          </div>
+          <p class="hint" id="bleHint"></p>
+        </div>
+
+        <!-- B2: Dispenser (ESP32 HTTP) -->
+        <div class="device-card" id="cardEsp32">
+          <div class="device-card__head">
+            <span><span aria-hidden="true">⚙️</span> <span data-i18n="settings.esp32.title">出貼馬達模組</span></span>
+            <span class="status-pill status-pill--muted" id="esp32StatusPill" role="status" aria-live="polite"
+                  data-i18n="esp32.status.unknown">尚未測試</span>
+          </div>
+          <div class="field">
+            <label for="esp32Host" data-i18n="settings.esp32.host">IP 位址 / 主機</label>
+            <input id="esp32Host" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+                   placeholder="172.20.10.2">
+          </div>
+          <div class="field">
+            <label for="esp32Proto" data-i18n="settings.esp32.protocol">通訊協定</label>
+            <select id="esp32Proto" class="select">
+              <option value="http">http</option>
+              <option value="https">https</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn-outline" data-action="esp32-test"
+                    data-i18n="settings.esp32.test">測試連線</button>
+            <button type="button" class="btn-outline" data-action="esp32-save"
+                    data-i18n="settings.esp32.apply">套用</button>
+            <button type="button" class="btn-outline" data-action="esp32-motor-test"
+                    data-i18n="settings.esp32.testMotor">測試馬達 1</button>
+          </div>
+          <p class="hint" id="esp32Hint"></p>
+        </div>
+
+        <!-- B3: Thresholds -->
+        <div class="device-card" id="cardThreshold">
+          <div class="device-card__head">
+            <span data-i18n="settings.section.thresholds">發燒門檻</span>
+          </div>
+          <div class="field">
+            <label for="feverThreshold" data-i18n="settings.threshold.label">發燒門檻 (°C)</label>
+            <input id="feverThreshold" type="number" step="0.1" min="30" max="45" value="37.5">
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn-outline" data-action="threshold-reset"
+                    data-i18n="settings.threshold.reset">重設為 37.5</button>
+          </div>
+          <p class="hint" id="thresholdHint" data-i18n="settings.threshold.hint">
+            預設 37.5°C；可接受範圍 30.0–45.0°C。
+          </p>
+        </div>
+
+        <!-- Advanced (collapsible) -->
+        <details class="advanced">
+          <summary data-i18n="settings.advanced.summary">進階設定</summary>
+
+          <div class="field">
+            <label for="svcUuid" data-i18n="settings.advanced.serviceUuid">服務 UUID</label>
+            <input id="svcUuid" type="text" autocomplete="off" spellcheck="false"
+                   value="0000ffe0-0000-1000-8000-00805f9b34fb">
+          </div>
+          <div class="field">
+            <label for="chrUuid" data-i18n="settings.advanced.characteristicUuid">特徵 UUID</label>
+            <input id="chrUuid" type="text" autocomplete="off" spellcheck="false"
+                   value="0000ffe1-0000-1000-8000-00805f9b34fb">
+          </div>
+          <label class="checkbox-row" for="acceptAll">
+            <input type="checkbox" id="acceptAll" checked>
+            <span data-i18n="settings.advanced.acceptAll">接受所有裝置</span>
+          </label>
+          <div class="field">
+            <label for="lockMs" data-i18n="settings.advanced.lockMs">馬達按鈕鎖定 (毫秒)</label>
+            <input id="lockMs" type="number" step="100" min="500" max="10000" value="2200">
+          </div>
+
+          <!-- Wound / AI detection endpoint (config-driven; was hard-coded) -->
+          <div class="field">
+            <label for="woundApiBaseUrl" data-i18n="settings.advanced.woundBaseUrl">傷口辨識 API 網址</label>
+            <input id="woundApiBaseUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                   placeholder="https://serverless.roboflow.com">
+          </div>
+          <div class="field">
+            <label for="woundModelId" data-i18n="settings.advanced.woundModelId">模型 ID</label>
+            <input id="woundModelId" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="wound-object-detection">
+          </div>
+          <div class="field">
+            <label for="woundModelVersion" data-i18n="settings.advanced.woundModelVersion">模型版本</label>
+            <input id="woundModelVersion" type="text" autocomplete="off" spellcheck="false" placeholder="1">
+          </div>
+          <div class="field">
+            <label for="woundApiKey" data-i18n="settings.advanced.woundApiKey">API 金鑰</label>
+            <input id="woundApiKey" type="password" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="woundConfidence" data-i18n="settings.advanced.woundConfidence">辨識信心門檻 (0–1)</label>
+            <input id="woundConfidence" type="number" step="0.05" min="0" max="1" value="0.5">
+          </div>
+          <p class="hint" id="woundHint" data-i18n="settings.advanced.woundHint">
+            金鑰僅儲存在此裝置的瀏覽器；未設定時傷口檢驗會顯示離線模擬結果。
+          </p>
+        </details>
+      </section>
+    </div>
+
+    <footer class="dialog__footer">
+      <button type="button" class="btn btn-danger" data-action="reset-all"
+              data-i18n="settings.resetAll">回復預設值</button>
+      <button type="button" class="btn btn-primary" data-action="save"
+              data-i18n="common.save">儲存</button>
+      <button type="button" class="btn btn-gray" data-action="close"
+              data-i18n="common.close">關閉</button>
+    </footer>
+  </dialog>
+
+  <!-- Toast surface (replaces the original blocking alert()) -->
+  <div class="toast-container" id="toastContainer" role="region" aria-live="polite"
+       aria-label="Notifications"></div>
+
+  <noscript>
+    <p class="hint">This app requires JavaScript and must be served over HTTP
+      (e.g. <code>python -m http.server 8080</code> then open http://localhost:8080/).</p>
+  </noscript>
+
+  <!-- Module entry point — implemented by the UI step (js/ui/* + js/app.js). -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
