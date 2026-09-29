@@ -117,6 +117,20 @@
   justify-content: flex-end;
 }
 
+/* --- wound camera switching --------------------------------------------- */
+
+/* Mirror ONLY the front-camera preview (selfie view). The capture canvas is
+   drawn from raw pixels and stays un-mirrored, which is correct for wound
+   analysis. */
+#woundVideo.is-mirrored {
+  transform: scaleX(-1);
+}
+
+.camera-switch-row {
+  justify-content: center;
+  margin: var(--space-5) 0;
+}
+
 .btn-row .btn,
 .btn-row .btn-primary,
 .btn-row .btn-danger,

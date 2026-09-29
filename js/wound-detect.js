@@ -1,6 +1,7 @@
 // js/wound-detect.js
 
 import { getConfig } from './config.js';
+import { i18n } from './i18n/index.js';
 
 // ==========================================
 // 1. 設定參數
@@ -27,6 +28,10 @@ const FALLBACK_REASON = Object.freeze({
 });
 
 let videoStream = null;
+/** 目前使用的鏡頭方向：'environment'（後置）或 'user'（前置）。 */
+let currentFacing = 'environment';
+/** 裝置是否偵測到兩個以上的鏡頭（由 enumerateDevices 判斷）。 */
+let switchAvailable = false;
 
 /**
  * 傷口辨識的錯誤型別：攜帶 `reason`（FALLBACK_REASON）以便分流處理。
@@ -229,11 +234,91 @@ export function initWoundDetection() {
   const canvas = document.getElementById('woundCanvas');
   const btnStartCamera = document.getElementById('btnStartCamera');
   const btnCaptureAnalyze = document.getElementById('btnCaptureAnalyze');
+  const btnSwitchCamera = document.getElementById('btnSwitchCamera');
   const woundStatusText = document.getElementById('woundStatusText');
 
   if (!video || !btnStartCamera || !btnCaptureAnalyze) {
     console.warn("傷口辨識 DOM 尚未就緒");
     return;
+  }
+
+  /**
+   * 取得（或重新取得）相機串流。可重複呼叫以切換鏡頭。
+   * @param {'environment'|'user'} facing 目標鏡頭方向。
+   * @param {{ plainFacingMode?: boolean }} [options] plainFacingMode 為 true 時
+   *        改用純字串 facingMode（後備路徑，相容不支援 { ideal } 的裝置）。
+   * @returns {Promise<MediaStream>}
+   */
+  async function startCamera(facing, { plainFacingMode = false } = {}) {
+    // 1. 先停止舊軌道：部分裝置會因此拒絕第二次請求或回傳同一個鏡頭。
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      videoStream = null;
+    }
+
+    // 2. 取得新串流（預設使用 { ideal }，避免桌機的 OverconstrainedError）。
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: plainFacingMode ? facing : { ideal: facing },
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      },
+      audio: false
+    });
+
+    // 3. 掛載串流；iOS Safari 需要重新指定 srcObject 並明確呼叫 play()。
+    video.srcObject = videoStream;
+    await video.play().catch(() => {});
+
+    // 4. 僅前置鏡頭預覽鏡像；擷取畫布維持原始像素（不做鏡像）。
+    video.classList.toggle('is-mirrored', facing === 'user');
+
+    // 5. 更新狀態，串流就緒後才允許拍照檢驗。
+    currentFacing = facing;
+    btnCaptureAnalyze.disabled = false;
+    return videoStream;
+  }
+
+  /** 依目前鏡頭與可用性更新切換鈕的動態標題 / 無障礙標籤。 */
+  function applySwitchText() {
+    if (!btnSwitchCamera) return;
+    if (!switchAvailable) {
+      const singleLabel = i18n.t('wound.camera.single');
+      btnSwitchCamera.title = singleLabel;
+      btnSwitchCamera.setAttribute('aria-label', singleLabel);
+      return;
+    }
+    const label = i18n.t(
+      currentFacing === 'environment' ? 'wound.camera.switchToFront' : 'wound.camera.switchToBack'
+    );
+    btnSwitchCamera.title = label;
+    btnSwitchCamera.setAttribute('aria-label', label);
+  }
+
+  /** 偵測可用鏡頭數量，據此啟用 / 停用切換鈕。 */
+  async function refreshSwitchAvailability() {
+    if (!btnSwitchCamera) return;
+
+    // 非安全來源（navigator.mediaDevices 未定義）時保持停用。
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+      switchAvailable = false;
+      btnSwitchCamera.disabled = true;
+      applySwitchText();
+      return;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      switchAvailable = devices.filter(device => device.kind === 'videoinput').length >= 2;
+    } catch (error) {
+      console.warn("[wound] 無法列舉裝置:", error);
+      switchAvailable = false;
+    }
+
+    // 少於兩個鏡頭：保持停用並顯示「僅有一個鏡頭」提示。
+    // 有多個鏡頭：只有在相機串流已就緒時才啟用，避免尚未開鏡就誤觸。
+    btnSwitchCamera.disabled = !switchAvailable || !videoStream;
+    applySwitchText();
   }
 
   // --- 開啟 / 重啟相機 ---
@@ -245,30 +330,71 @@ export function initWoundDetection() {
     woundStatusText.style.color = "#4b5563";
 
     try {
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-      }
+      await startCamera(currentFacing);
 
-      videoStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        },
-        audio: false
-      });
-
-      video.srcObject = videoStream;
-      btnCaptureAnalyze.disabled = false;
       btnStartCamera.textContent = "🔄 重啟相機";
       woundStatusText.textContent = "相機已就緒！對準患部後點擊「拍照並檢驗傷口」。";
       woundStatusText.style.color = "#2563eb";
+
+      // 取得權限後 enumerateDevices 才會回傳完整清單，於此重新偵測。
+      await refreshSwitchAvailability();
     } catch (err) {
       console.error("相機失敗:", err);
       woundStatusText.textContent = "無法啟動相機，請檢查權限。";
       woundStatusText.style.color = "#dc2626";
     }
   });
+
+  // --- 切換前後鏡頭 ---
+  if (btnSwitchCamera) {
+    btnSwitchCamera.addEventListener('click', async () => {
+      if (!videoStream) return;
+
+      const previousFacing = currentFacing;
+      const nextFacing = currentFacing === 'environment' ? 'user' : 'environment';
+
+      btnSwitchCamera.disabled = true;
+      btnCaptureAnalyze.disabled = true;
+      woundStatusText.textContent = i18n.t('wound.camera.switching');
+      woundStatusText.style.color = "#4b5563";
+
+      try {
+        try {
+          await startCamera(nextFacing);
+        } catch (error) {
+          // { ideal } 在部分裝置仍可能失敗：以純字串 facingMode 再試一次。
+          if (error && (error.name === 'OverconstrainedError' || error.name === 'NotFoundError')) {
+            await startCamera(nextFacing, { plainFacingMode: true });
+          } else {
+            throw error;
+          }
+        }
+
+        woundStatusText.textContent = "相機已就緒！對準患部後點擊「拍照並檢驗傷口」。";
+        woundStatusText.style.color = "#2563eb";
+      } catch (error) {
+        console.error("切換鏡頭失敗:", error);
+
+        // 新鏡頭失敗時還原舊鏡頭，避免預覽畫面全黑。
+        try {
+          await startCamera(previousFacing);
+        } catch (restoreError) {
+          console.error("回復鏡頭失敗:", restoreError);
+        }
+
+        woundStatusText.textContent = i18n.t('wound.camera.error');
+        woundStatusText.style.color = "#dc2626";
+      } finally {
+        // 先解除切換鈕鎖定，再依鏡頭數量 / 串流狀態校正。
+        btnSwitchCamera.disabled = false;
+        await refreshSwitchAvailability();
+      }
+    });
+
+    // 初始化：偵測鏡頭能力，並在語言切換時更新動態標籤。
+    refreshSwitchAvailability();
+    i18n.onLanguageChange(applySwitchText);
+  }
 
   // --- 拍照與檢測 ---
   btnCaptureAnalyze.addEventListener('click', async () => {
