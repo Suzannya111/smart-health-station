@@ -110,6 +110,13 @@ async function fetchMacauWeather() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // This module renders these two elements imperatively, so drop their
+  // declarative i18n hooks to keep applyToDOM() from clobbering live values.
+  currentDateText?.removeAttribute('data-i18n');
+  currentDateText?.removeAttribute('data-i18n-attr');
+  weatherStateText?.removeAttribute('data-i18n');
+  weatherStateText?.removeAttribute('data-i18n-attr');
+
   updateDateDisplay();
   fetchMacauWeather();
 
