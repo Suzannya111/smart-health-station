@@ -18,13 +18,7 @@
 
   <div class="app-shell">
 
-    <!-- =====================================================================
-         SINGLE SHARED HEADER (blueprint §3.1)
-         Replaces the original's four duplicated .header-bar blocks:
-         dynamic per-view badge + ONE language <select> + Settings button
-         + aggregate Health Kit indicator.
-         The router sets #appBadge text and the --alert variant on view:changed.
-         ===================================================================== -->
+    <!-- SINGLE SHARED HEADER -->
     <header class="app-header" id="appHeader">
       <div class="app-header__left">
         <div class="badge-tag" id="appBadge">SMART MEDICAL STATION</div>
@@ -55,19 +49,40 @@
         <h1 id="homeTitle" data-i18n="homeTitle">全方位智慧健康站</h1>
         <p class="subtitle" data-i18n="homeSubtitle">即時體溫檢測 • 多機構自動化給藥 • 鄰近醫療導航</p>
 
-        <!-- 模組跳轉按鈕 -->
-        <div class="btn-grid">
+        <!-- 日期與澳門即時天氣面板 -->
+        <div class="weather-panel my-4" id="weatherPanel" style="background: rgba(255,255,255,0.4); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(0,0,0,0.05);">
+          <div class="weather-info__date">
+            <span id="currentDateText" data-i18n="weather.date.loading" style="font-weight: bold; display: block; font-size: 1.05rem; color: #1f2937;">📅 載入中...</span>
+            <span id="macauLocationTag" data-i18n="weather.location.macau" style="font-size: 0.85rem; color: #4b5563;">📍 澳門特別行政區 (Macau)</span>
+          </div>
+          <div class="weather-info__status" style="display: flex; align-items: center; gap: 10px;">
+            <span id="weatherIcon" data-i18n-attr="aria-label:weather.aria.icon" style="font-size: 2.2rem;" aria-label="天氣狀態">☀️</span>
+            <div>
+              <span id="weatherStateText" data-i18n="weather.condition.sunny" style="font-weight: bold; display: block; color: #111827;">晴朗</span>
+              <span id="tempRainText" style="font-size: 0.85rem; color: #374151;">--°C | --%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模組跳轉與領取雨衣按鈕群組 (上方 3 個按鈕並排) -->
+        <div class="btn-grid" style="grid-template-columns: repeat(3, 1fr);">
           <button type="button" class="btn btn-blue" data-view="viewTemp">
             <span class="icon-lg">🌡️</span>
             <span data-i18n="btnNavTemp">體溫量測與退熱機構</span>
           </button>
+          
           <button type="button" class="btn btn-green" data-view="viewWound">
             <span class="icon-lg">🩹</span>
             <span data-i18n="btnNavWound">傷口包紮與處置機構</span>
           </button>
+
+          <button type="button" class="btn btn-blue" id="btnRaincoat" style="background-color: #0284c7;">
+            <span class="icon-lg">🌧️</span>
+            <span id="raincoatBtnText" data-i18n="weather.action.raincoat">領取雨衣</span>
+          </button>
         </div>
 
-        <!-- 首頁三大馬達獨立控制面板 (完全無橙色) -->
+        <!-- 首頁三大馬達獨立控制面板 -->
         <div class="motor-panel">
           <div class="motor-panel-title">
             <span>⚙️</span> <span data-i18n="motorPanelTitle">機構手動驅動面板 (ESP32 Wi-Fi)</span>
@@ -85,13 +100,13 @@
             </button>
             <button type="button" class="btn btn-motor-single btn-m3"
                     data-action="motor" data-motor="M3" data-endpoint="m3/fwd">
-              <span>💊 <b data-i18n="btnM3">馬達 3：輔助監測 / 給藥機構</b></span>
+              <span>🌧️ <b data-i18n="btnM3">馬達 3：天氣監測 / 雨衣發放機構</b></span>
               <span>旋轉 ↻</span>
             </button>
           </div>
         </div>
 
-        <!-- Primary Health Kit entry point (opens the Settings dialog wizard) -->
+        <!-- Primary Health Kit entry point -->
         <div class="my-4">
           <button type="button" class="btn btn-gray" data-action="open-healthkit"
                   data-i18n="healthkit.connect">連接健康套件</button>
@@ -99,7 +114,6 @@
 
         <div class="map-title" data-i18n="mapTitle">📍 附近即時醫療與診所分佈</div>
         <div class="map-box">
-          <!-- src is intentionally empty: js/ui/maps.js sets it lazily when the view is shown -->
           <iframe id="homeMapFrame" title="附近醫療地圖" data-i18n-attr="title:mapTitle"
                   src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
@@ -154,7 +168,6 @@
         </div>
 
         <div class="map-box">
-          <!-- src is intentionally empty: js/ui/maps.js sets it lazily when the view is shown -->
           <iframe id="alertMapFrame" title="附近醫療地圖" data-i18n-attr="title:mapTitle"
                   src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
@@ -165,53 +178,50 @@
         </div>
       </section>
 
-     <!-- ================= 視圖 4：傷口分析 (viewWound) ================= -->
-<section class="fancy-card view" id="viewWound"
-         data-badge="WOUND CARE" data-badge-variant="default"
-         aria-labelledby="woundTitle">
+      <!-- ================= 視圖 4：傷口分析 (viewWound) ================= -->
+      <section class="fancy-card view" id="viewWound"
+               data-badge="WOUND CARE" data-badge-variant="default"
+               aria-labelledby="woundTitle">
 
-  <h2 id="woundTitle" data-i18n="woundTitle">傷口處理與處置機構</h2>
-  <p class="subtitle" data-i18n="woundSubtitle">對準患部進行檢視，辨識出傷口將自動驅動馬達 2 發放敷料</p>
+        <h2 id="woundTitle" data-i18n="woundTitle">傷口處理與處置機構</h2>
+        <p class="subtitle" data-i18n="woundSubtitle">對準患部進行檢視，辨識出傷口將自動驅動馬達 2 發放敷料</p>
 
-  <!-- 相機預覽與擷取畫布區域 -->
-  <div class="camera-container" style="position: relative; max-width: 320px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: #000;">
-    <video id="woundVideo" autoplay playsinline muted style="width: 100%; display: block;"></video>
-    <canvas id="woundCanvas" style="display: none;"></canvas>
-    <!-- 辨識中遮罩/框線 -->
-    <div id="scanOverlay" style="position: absolute; inset: 0; border: 2px dashed rgba(255,255,255,0.6); pointer-events: none; border-radius: 16px;"></div>
-  </div>
+        <!-- 相機預覽與擷取畫布區域 -->
+        <div class="camera-container" style="position: relative; max-width: 320px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: #000;">
+          <video id="woundVideo" autoplay playsinline muted style="width: 100%; display: block;"></video>
+          <canvas id="woundCanvas" style="display: none;"></canvas>
+          <div id="scanOverlay" style="position: absolute; inset: 0; border: 2px dashed rgba(255,255,255,0.6); pointer-events: none; border-radius: 16px;"></div>
+        </div>
 
-  <!-- 狀態提示文字 -->
-  <p id="woundStatusText" style="margin-top: 12px; font-weight: bold; color: #4b5563;">請點擊下方開啟相機</p>
+        <p id="woundStatusText" style="margin-top: 12px; font-weight: bold; color: #4b5563;">請點擊下方開啟相機</p>
 
-  <!-- 按鈕操作群組 -->
-  <div class="my-4" style="display: flex; gap: 10px; justify-content: center;">
-    <button type="button" class="btn btn-blue" id="btnStartCamera">📷 開啟相機</button>
-    <button type="button" class="btn btn-green" id="btnCaptureAnalyze" disabled>🔍 拍照並檢驗傷口</button>
-  </div>
+        <div class="my-4" style="display: flex; gap: 10px; justify-content: center;">
+          <button type="button" class="btn btn-blue" id="btnStartCamera">📷 開啟相機</button>
+          <button type="button" class="btn btn-green" id="btnCaptureAnalyze" disabled>🔍 拍照並檢驗傷口</button>
+        </div>
 
-  <!-- 手動強制出料按鈕 -->
-  <div class="my-4">
-    <button type="button" class="btn btn-motor-single btn-m2 w-full"
-            data-action="motor" data-motor="M2" data-endpoint="m2/fwd">
-      <span>🩹 <b data-i18n="btnM2">馬達 2：傷口護理 / 包紮機構</b></span>
-      <span>手動出料 ↻</span>
-    </button>
-  </div>
+        <div class="btn-row camera-switch-row">
+          <button type="button" class="btn btn-outline" id="btnSwitchCamera"
+                  data-i18n="wound.camera.switch" disabled>🔄 切換前後鏡頭</button>
+        </div>
 
-  <div>
-    <button type="button" class="btn btn-gray" data-view="viewHome" data-i18n="btnBack">返回主頁</button>
-  </div>
-</section>
+        <div class="my-4">
+          <button type="button" class="btn btn-motor-single btn-m2 w-full"
+                  data-action="motor" data-motor="M2" data-endpoint="m2/fwd">
+            <span>🩹 <b data-i18n="btnM2">馬達 2：傷口護理 / 包紮機構</b></span>
+            <span>手動出料 ↻</span>
+          </button>
+        </div>
+
+        <div>
+          <button type="button" class="btn btn-gray" data-view="viewHome" data-i18n="btnBack">返回主頁</button>
+        </div>
+      </section>
 
     </main>
   </div>
 
-  <!-- =======================================================================
-       SETTINGS DIALOG (blueprint §3.2)
-       Native <dialog>: built-in modal semantics, ESC-to-close, focus handling.
-       Markup only here — behaviour is wired by js/ui/settings.js.
-       ======================================================================= -->
+  <!-- SETTINGS DIALOG (保留完整開發者進階設定與新增天氣測試) -->
   <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
 
     <header class="dialog__header">
@@ -240,7 +250,6 @@
       <section class="dialog__section" aria-labelledby="secHardware">
         <h3 id="secHardware"><span aria-hidden="true">🩺</span> <span data-i18n="settings.section.hardware">健康套件硬體</span></h3>
 
-        <!-- B0: guided connect flow (blueprint §3.3) -->
         <div class="device-card" id="cardWizard">
           <div class="device-card__head">
             <span data-i18n="settings.section.wizard">快速連接精靈</span>
@@ -284,7 +293,6 @@
           <p class="hint" id="wizardHint"></p>
         </div>
 
-        <!-- B1: Thermometer (BLE) -->
         <div class="device-card" id="cardThermometer">
           <div class="device-card__head">
             <span><span aria-hidden="true">🌡️</span> <span data-i18n="settings.thermometer.title">藍牙體溫計</span></span>
@@ -305,7 +313,6 @@
           <p class="hint" id="bleHint"></p>
         </div>
 
-        <!-- B2: Dispenser (ESP32 HTTP) -->
         <div class="device-card" id="cardEsp32">
           <div class="device-card__head">
             <span><span aria-hidden="true">⚙️</span> <span data-i18n="settings.esp32.title">出貼馬達模組</span></span>
@@ -335,7 +342,6 @@
           <p class="hint" id="esp32Hint"></p>
         </div>
 
-        <!-- B3: Thresholds -->
         <div class="device-card" id="cardThreshold">
           <div class="device-card__head">
             <span data-i18n="settings.section.thresholds">發燒門檻</span>
@@ -353,11 +359,22 @@
           </p>
         </div>
 
-        <!-- Advanced (collapsible) -->
-        <details class="advanced">
-          <summary data-i18n="settings.advanced.summary">進階設定</summary>
+        <!-- 完整進階開發者設定 (原設定 + 天氣模擬選單) -->
+        <details class="advanced" open>
+          <summary data-i18n="settings.advanced.summary">進階設定與開發者工具</summary>
 
-          <div class="field">
+          <!-- 新增開發者天氣模擬選擇 -->
+          <div class="field" style="margin-top: 10px; background: #f3f4f6; padding: 10px; border-radius: 8px;">
+            <label for="devWeatherSelect" data-i18n="weather.dev.title" style="font-weight: bold; color: #1d4ed8;">⚡ 開發者測試：模擬天氣控制</label>
+            <select id="devWeatherSelect" class="select" style="margin-top: 5px;">
+              <option value="auto" data-i18n="weather.dev.option.auto">🌐 自動讀取澳門真實天氣 (預設)</option>
+              <option value="sunny" data-i18n="weather.dev.option.sunny">☀️ 晴天 (Sun / 0% 雨)</option>
+              <option value="cloudy" data-i18n="weather.dev.option.cloudy">☁️ 多雲 (Cloudy / 20% 雨)</option>
+              <option value="rainy" data-i18n="weather.dev.option.rainy">🌧️ 下雨 (Rainy / 90% 雨 - 解鎖雨衣發放)</option>
+            </select>
+          </div>
+
+          <div class="field mt-3">
             <label for="svcUuid" data-i18n="settings.advanced.serviceUuid">服務 UUID</label>
             <input id="svcUuid" type="text" autocomplete="off" spellcheck="false"
                    value="0000ffe0-0000-1000-8000-00805f9b34fb">
@@ -376,7 +393,6 @@
             <input id="lockMs" type="number" step="100" min="500" max="10000" value="2200">
           </div>
 
-          <!-- Wound / AI detection endpoint (config-driven; was hard-coded) -->
           <div class="field">
             <label for="woundApiBaseUrl" data-i18n="settings.advanced.woundBaseUrl">傷口辨識 API 網址</label>
             <input id="woundApiBaseUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"
@@ -399,9 +415,6 @@
             <label for="woundConfidence" data-i18n="settings.advanced.woundConfidence">辨識信心門檻 (0–1)</label>
             <input id="woundConfidence" type="number" step="0.05" min="0" max="1" value="0.5">
           </div>
-          <p class="hint" id="woundHint" data-i18n="settings.advanced.woundHint">
-            金鑰僅儲存在此裝置的瀏覽器；未設定時傷口檢驗會顯示離線模擬結果。
-          </p>
         </details>
       </section>
     </div>
@@ -416,16 +429,11 @@
     </footer>
   </dialog>
 
-  <!-- Toast surface (replaces the original blocking alert()) -->
+  <!-- Toast 通知元件 -->
   <div class="toast-container" id="toastContainer" role="region" aria-live="polite"
        aria-label="Notifications"></div>
 
-  <noscript>
-    <p class="hint">This app requires JavaScript and must be served over HTTP
-      (e.g. <code>python -m http.server 8080</code> then open http://localhost:8080/).</p>
-  </noscript>
-
-  <!-- Module entry point — implemented by the UI step (js/ui/* + js/app.js). -->
   <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/weather.js"></script>
 </body>
 </html>
