@@ -317,6 +317,24 @@
   color: var(--primary-blue);
 }
 
+/* recent-location control (Home map) — reuses .btn-outline + .status-pill */
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.map-toolbar__status {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.map-toolbar__status:empty {
+  display: none;
+}
+
 /* =========================================================================
    Alert view
    ========================================================================= */

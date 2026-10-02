@@ -113,6 +113,11 @@
         </div>
 
         <div class="map-title" data-i18n="mapTitle">📍 附近即時醫療與診所分佈</div>
+        <div class="map-toolbar">
+          <button type="button" class="btn btn-outline" data-action="locate-me" id="btnLocateMe"
+                  data-i18n="map.locate">📍 定位我的位置</button>
+          <span class="map-toolbar__status" id="mapLocationStatus" role="status" aria-live="polite"></span>
+        </div>
         <div class="map-box">
           <iframe id="homeMapFrame" title="附近醫療地圖" data-i18n-attr="title:mapTitle"
                   src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>

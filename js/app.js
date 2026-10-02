@@ -23,6 +23,7 @@ import { createThermometerClient } from './devices/ble-thermometer.js';
 import { createEsp32Client } from './devices/esp32-client.js';
 import { createRouter } from './ui/router.js';
 import { createHeader } from './ui/header.js';
+import { createLocation } from './ui/location.js';
 import { createMaps } from './ui/maps.js';
 import { createViews } from './ui/views.js';
 import { createSettings } from './ui/settings.js';
@@ -53,13 +54,15 @@ function bootstrap() {
   const router = createRouter({ bus, container: document.getElementById('viewContainer') });
   const settings = createSettings({ bus, i18n, thermo, esp32 });
   const header = createHeader({ bus, i18n, onOpenSettings: () => settings.open() });
-  const maps = createMaps({ bus, i18n, router });
+  const location = createLocation({ bus, i18n });
+  const maps = createMaps({ bus, i18n, router, location });
   const views = createViews({ bus, i18n, router, thermo, esp32 });
 
   // Order matters: consumers subscribe to the bus BEFORE the router emits the
   // initial `view:changed` (which lazily loads the Home map).
   settings.init();
   header.init();
+  location.init(); // load the persisted location BEFORE maps reads it
   maps.init();
   views.init();
   router.init();

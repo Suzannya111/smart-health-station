@@ -28,7 +28,10 @@ export const EVENT_NAMES = Object.freeze({
   I18N_CHANGED: 'i18n:changed',       // { lang }
   /* UI-owned events (documented for the UI subtask) */
   VIEW_CHANGED: 'view:changed',       // { viewId }
-  TOAST: 'toast:shown'                // { type, message }
+  TOAST: 'toast:shown',               // { type, message }
+  /* location service (js/ui/location.js) */
+  LOCATION_CHANGED: 'location:changed', // { position: {lat,lng,accuracy,timestamp}, source: 'live'|'stored' }
+  LOCATION_ERROR: 'location:error'      // { code: 0|1|2|3, key: 'error.geolocation.*' }
 });
 
 const WILDCARD = '*';

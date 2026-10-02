@@ -83,6 +83,13 @@ export const STRINGS = Object.freeze({
     woundSubtitle: '患部檢視完畢後，可驅動馬達 2 發放傷口敷料或包紮耗材',
     mapQuery: '醫院+診所',
 
+    /* ---- map: recent location ---------------------------------------- */
+    'map.locate': '📍 定位我的位置',
+    'map.locate.locating': '定位中…',
+    'map.locate.showFacilities': '顯示附近醫療機構',
+    'map.location.updated': '已更新至你的最新位置',
+    'map.location.stored': '顯示上次已知位置',
+
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': '切換前後鏡頭',
     'wound.camera.switchToFront': '切換至前置鏡頭',
@@ -250,6 +257,10 @@ export const STRINGS = Object.freeze({
 
     /* ---- errors ------------------------------------------------------ */
     'error.geolocation.denied': '無法取得定位，地圖顯示預設區域',
+    'error.geolocation.unsupported': '此瀏覽器不支援定位功能',
+    'error.geolocation.insecure': '定位功能需要安全連線 (HTTPS)',
+    'error.geolocation.unavailable': '目前無法取得你的位置，請稍後再試',
+    'error.geolocation.timeout': '定位逾時，請重試',
     'error.esp32.send': '無法送出指令（網路或內容安全政策阻擋）'
   }),
 
@@ -279,6 +290,13 @@ export const STRINGS = Object.freeze({
     woundTitle: '伤口处理与处置机构',
     woundSubtitle: '患部检视完毕后，可驱动马达 2 发放伤口敷料或包扎耗材',
     mapQuery: '医院+诊所',
+
+    /* ---- map: recent location ---------------------------------------- */
+    'map.locate': '📍 定位我的位置',
+    'map.locate.locating': '定位中…',
+    'map.locate.showFacilities': '显示附近医疗机构',
+    'map.location.updated': '已更新至你的最新位置',
+    'map.location.stored': '显示上次已知位置',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': '切换前后摄像头',
@@ -433,6 +451,10 @@ export const STRINGS = Object.freeze({
     'toast.lang.changed': '语言已切换',
 
     'error.geolocation.denied': '无法获取定位，地图显示默认区域',
+    'error.geolocation.unsupported': '此浏览器不支持定位功能',
+    'error.geolocation.insecure': '定位功能需要安全连接 (HTTPS)',
+    'error.geolocation.unavailable': '目前无法获取你的位置，请稍后再试',
+    'error.geolocation.timeout': '定位超时，请重试',
     'error.esp32.send': '无法发送指令（网络或内容安全策略阻挡）'
   }),
 
@@ -463,6 +485,13 @@ export const STRINGS = Object.freeze({
     woundTitle: 'Wound Care & Dressing',
     woundSubtitle: 'Trigger Motor 2 to dispense wound care dressing materials',
     mapQuery: 'hospital+clinic',
+
+    /* ---- map: recent location ---------------------------------------- */
+    'map.locate': '📍 Show my location',
+    'map.locate.locating': 'Locating…',
+    'map.locate.showFacilities': 'Show nearby facilities',
+    'map.location.updated': 'Updated to your latest location',
+    'map.location.stored': 'Showing last known location',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': 'Switch camera',
@@ -622,6 +651,10 @@ export const STRINGS = Object.freeze({
     'toast.lang.changed': 'Language changed',
 
     'error.geolocation.denied': 'Location unavailable; showing default area',
+    'error.geolocation.unsupported': 'Geolocation is not supported by this browser',
+    'error.geolocation.insecure': 'Location requires a secure (HTTPS) connection',
+    'error.geolocation.unavailable': 'Your location is currently unavailable; please try again',
+    'error.geolocation.timeout': 'Location request timed out; please retry',
     'error.esp32.send': 'Could not send the command (blocked by network or content-security policy)'
   }),
 
@@ -652,6 +685,13 @@ export const STRINGS = Object.freeze({
     woundTitle: 'Tratamento de Feridas',
     woundSubtitle: 'Acione o Motor 2 para dispensar pensos e materiais de tratamento',
     mapQuery: 'hospital+clinica',
+
+    /* ---- map: recent location ---------------------------------------- */
+    'map.locate': '📍 Mostrar a minha localização',
+    'map.locate.locating': 'A localizar…',
+    'map.locate.showFacilities': 'Mostrar unidades próximas',
+    'map.location.updated': 'Atualizado para a sua localização mais recente',
+    'map.location.stored': 'A mostrar a última localização conhecida',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': 'Alternar câmara',
@@ -812,6 +852,10 @@ export const STRINGS = Object.freeze({
     'toast.lang.changed': 'Idioma alterado',
 
     'error.geolocation.denied': 'Localização indisponível; área predefinida',
+    'error.geolocation.unsupported': 'A geolocalização não é suportada por este navegador',
+    'error.geolocation.insecure': 'A localização requer uma ligação segura (HTTPS)',
+    'error.geolocation.unavailable': 'A sua localização está indisponível neste momento; tente novamente',
+    'error.geolocation.timeout': 'O pedido de localização excedeu o tempo; tente novamente',
     'error.esp32.send': 'Não foi possível enviar o comando (rede ou política de segurança de conteúdo)'
   })
 });
