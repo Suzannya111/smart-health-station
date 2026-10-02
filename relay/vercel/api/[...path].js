@@ -13,7 +13,10 @@ const ROBOFLOW_BASE = 'https://serverless.roboflow.com';
 const GEMINI_API_BASE =
   'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash';
-const GEMINI_TIMEOUT_MS = 45000; // overall budget shared by all attempts
+const GEMINI_TIMEOUT_MS = 45000; // overall wall-clock budget shared by all attempts
+// Each individual model attempt gets its own short budget so a hung candidate
+// cannot consume the whole deadline: a per-attempt abort is a ROTATION signal.
+const GEMINI_ATTEMPT_TIMEOUT_MS = 12000;
 // Quota buckets are PER MODEL: when one model is daily-quota-exhausted (429)
 // we rotate to the next candidate to restore service. The list is
 // env-overridable via GEMINI_MODELS (comma-separated) for ops flexibility.
@@ -80,8 +83,7 @@ async function handleGemini(req, res) {
   // Forward the body verbatim (raw Gemini generateContent JSON).
   const body = await readRawBody(req);
 
-  // Overall ~45 s budget shared by every attempt. Each attempt aborts when the
-  // remaining budget is exhausted; that abort maps to 504 upstream_timeout.
+  // Overall ~45 s wall-clock budget shared by every attempt.
   const deadline = Date.now() + GEMINI_TIMEOUT_MS;
 
   // The model that produced the response actually returned to the caller.
@@ -92,12 +94,16 @@ async function handleGemini(req, res) {
     let text = '';
 
     // Walk the candidates in order. Rotate to the next model on quota (429),
-    // missing (404) or overloaded (503); a 503 gets ONE short retry on the
-    // SAME model first. Any other status stops the walk and is returned as-is.
+    // missing (404), overloaded (503) or a per-attempt abort/timeout; a 503
+    // gets ONE short retry on the SAME model first. Any other status stops the
+    // walk and is returned as-is.
     for (const candidate of candidates) {
       const target =
         `${GEMINI_API_BASE}/${encodeURIComponent(candidate)}:generateContent` +
         `?key=${encodeURIComponent(apiKey)}`;
+
+      // True when this candidate aborted/threw, i.e. a rotation signal.
+      let aborted = false;
 
       for (let attempt = 0; attempt < 2; attempt += 1) {
         if (attempt > 0) {
@@ -106,11 +112,15 @@ async function handleGemini(req, res) {
           await sleep(GEMINI_RETRY_DELAY_MS);
         }
 
+        // Stop walking once the shared wall-clock deadline has passed.
         const remaining = deadline - Date.now();
         if (remaining <= 0) break;
 
+        // Cap this attempt by the short per-attempt budget AND what is left of
+        // the shared deadline, so no single candidate can stall the walk.
+        const attemptBudget = Math.min(GEMINI_ATTEMPT_TIMEOUT_MS, remaining);
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), remaining);
+        const timer = setTimeout(() => controller.abort(), attemptBudget);
         try {
           upstream = await fetch(target, {
             method: 'POST',
@@ -123,6 +133,14 @@ async function handleGemini(req, res) {
           });
           text = await upstream.text();
           usedModel = candidate;
+        } catch (err) {
+          // Per-attempt abort/timeout (or network error): forget this
+          // response and rotate to the next candidate instead of failing.
+          upstream = null;
+          text = '';
+          usedModel = candidate;
+          aborted = true;
+          break;
         } finally {
           clearTimeout(timer);
         }
@@ -132,6 +150,8 @@ async function handleGemini(req, res) {
         break;
       }
 
+      if (aborted) continue; // timeout/abort -> try the next candidate model
+
       if (!upstream) break; // budget exhausted before any upstream response
 
       // Rotate to the next model ONLY on these statuses; else return this one.
@@ -140,7 +160,8 @@ async function handleGemini(req, res) {
     }
 
     if (!upstream) {
-      // Budget exhausted before any upstream response was obtained.
+      // All candidates exhausted with a timeout/abort as the last outcome
+      // (or the budget ran out before any upstream response was obtained).
       res.statusCode = 504;
       res.setHeader('X-Relay-Model', usedModel);
       res.setHeader('Content-Type', 'application/json');
