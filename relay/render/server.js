@@ -30,7 +30,79 @@ app.use((req, res, next) => {
   return next();
 });
 
-// Proxy every path/method to Roboflow.
+// --- Gemini vision proxy -----------------------------------------------------
+// Transparent proxy for the app's vision inference. Google Gemini is blocked in
+// the user's region, so the request is re-issued from this relay's (US) egress.
+// The API key stays server-side and is never logged, echoed, or returned.
+//
+// Contract:
+//   POST /gemini-generate?model=<model>
+//   Content-Type: application/json
+//   body: Gemini generateContent JSON ({ contents, generationConfig, ... })
+// -> forwarded verbatim to
+//   https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+//
+// Gemini's JSON is passed through unchanged so the caller can read
+// candidates[0].content.parts[0].text directly.
+
+const GEMINI_API_BASE =
+  'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+const GEMINI_TIMEOUT_MS = 45000;
+
+// Registered BEFORE app.all('*') so it is not swallowed by the Roboflow proxy.
+app.post('/gemini-generate', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({
+      error: 'server_misconfigured',
+      message: 'GEMINI_API_KEY is not set'
+    });
+  }
+
+  // Model resolution order: ?model= -> GEMINI_MODEL -> built-in default.
+  const requested = typeof req.query.model === 'string' ? req.query.model : '';
+  const model = requested || process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+  const target =
+    `${GEMINI_API_BASE}/${encodeURIComponent(model)}:generateContent` +
+    `?key=${encodeURIComponent(apiKey)}`;
+
+  // Forward the body verbatim (express.text already kept it as a raw string).
+  const body = typeof req.body === 'string' ? req.body : '';
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+  try {
+    const upstream = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body,
+      signal: controller.signal
+    });
+
+    const text = await upstream.text();
+    res.status(upstream.status);
+    res.setHeader(
+      'Content-Type',
+      upstream.headers.get('content-type') || 'application/json'
+    );
+    res.send(text);
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      return res.status(504).json({ error: 'upstream_timeout' });
+    }
+    // Deliberately no detail: never surface the key or the keyed URL.
+    return res.status(502).json({ error: 'relay_error' });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+// Proxy every other path/method to Roboflow.
 app.all('*', async (req, res) => {
   const base = process.env.ROBOFLOW_BASE || 'https://serverless.roboflow.com';
   const target = base + req.originalUrl;

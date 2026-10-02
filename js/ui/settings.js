@@ -42,7 +42,9 @@ const FIELD_SELECTORS = Object.freeze({
   'esp32.commandLockMs': '#lockMs',
   'woundAi.baseUrl': '#woundApiBaseUrl',
   'woundAi.confidenceThreshold': '#woundConfidence',
-  'woundAi.apiKey': '#woundApiKey'
+  'woundAi.apiKey': '#woundApiKey',
+  'woundAi.geminiApiKey': '#woundGeminiApiKey',
+  'woundAi.relayUrl': '#woundRelayUrl'
 });
 
 /** BLE status vocabulary → { i18n key, pill variant } (blueprint §3.3(c)). */
@@ -175,6 +177,18 @@ export function createSettings({ bus, i18n, thermo, esp32 }) {
     if (woundConfidence) {
       woundConfidence.value = String(cfg.woundAi?.confidenceThreshold ?? 0.5);
     }
+
+    const woundProvider = el('woundProvider');
+    if (woundProvider) woundProvider.value = cfg.woundAi?.provider || 'gemini';
+
+    const woundGeminiKey = el('woundGeminiApiKey');
+    if (woundGeminiKey) woundGeminiKey.value = cfg.woundAi?.geminiApiKey || '';
+
+    const woundRelayUrl = el('woundRelayUrl');
+    if (woundRelayUrl) woundRelayUrl.value = cfg.woundAi?.relayUrl || '';
+
+    const woundGeminiModel = el('woundGeminiModel');
+    if (woundGeminiModel) woundGeminiModel.value = cfg.woundAi?.geminiModel || 'gemini-3.8-flash';
 
     renderDeviceMeta();
     setHint('esp32Hint', t('settings.esp32.hint'));
@@ -426,6 +440,10 @@ export function createSettings({ bus, i18n, thermo, esp32 }) {
     const woundVersion = el('woundModelVersion');
     const woundKey = el('woundApiKey');
     const woundConfidence = el('woundConfidence');
+    const woundProvider = el('woundProvider');
+    const woundGeminiKey = el('woundGeminiApiKey');
+    const woundGeminiModel = el('woundGeminiModel');
+    const woundRelayUrl = el('woundRelayUrl');
 
     return {
       esp32: {
@@ -442,12 +460,16 @@ export function createSettings({ bus, i18n, thermo, esp32 }) {
         feverCelsius: threshold ? Number(threshold.value) : undefined
       },
       woundAi: {
+        provider: woundProvider ? woundProvider.value : undefined,
         baseUrl: woundBase ? woundBase.value.trim() : undefined,
         modelId: woundModel ? woundModel.value.trim() : undefined,
         version: woundVersion ? woundVersion.value.trim() : undefined,
         apiKey: woundKey ? woundKey.value.trim() : undefined,
         confidenceThreshold:
-          woundConfidence && woundConfidence.value !== '' ? Number(woundConfidence.value) : undefined
+          woundConfidence && woundConfidence.value !== '' ? Number(woundConfidence.value) : undefined,
+        geminiApiKey: woundGeminiKey ? woundGeminiKey.value.trim() : undefined,
+        geminiModel: woundGeminiModel ? woundGeminiModel.value.trim() : undefined,
+        relayUrl: woundRelayUrl ? woundRelayUrl.value.trim() : undefined
       }
     };
   }

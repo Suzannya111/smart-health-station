@@ -69,6 +69,18 @@ p.hint--error {
   color: var(--danger-strong);
 }
 
+/* Prominent AI medical disclaimer inside the wound-detection view. */
+p.wound-disclaimer {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
 figure {
   margin: 0;
 }

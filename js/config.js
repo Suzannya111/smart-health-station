@@ -61,6 +61,25 @@ export const DEFAULT_WOUND_MODEL_VERSION = '1';
 export const DEFAULT_WOUND_API_KEY = 'f1JanSsMXOqLmiXQDyTy';
 export const DEFAULT_WOUND_CONFIDENCE = 0.5;
 
+/**
+ * Optional Gemini relay URL (e.g. the Render/Vercel relay). Empty means the
+ * client calls Gemini directly with a user-supplied key; when set, requests go
+ * through the relay so the Gemini key stays server-side and geo-blocks are
+ * bypassed. No credential is embedded here.
+ */
+export const DEFAULT_WOUND_RELAY_URL = '';
+
+/**
+ * Wound-detection AI provider schema.
+ * - `gemini`   browser-direct Google Gemini (video/vision) — the DEFAULT, no relay needed.
+ * - `roboflow` the legacy relay/Cloudflare path — kept as a selectable fallback.
+ */
+export const WOUND_PROVIDERS = Object.freeze(['gemini', 'roboflow']);
+export const DEFAULT_WOUND_PROVIDER = 'gemini';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+/** No embedded key — the user supplies their own in Settings → Advanced. */
+export const DEFAULT_GEMINI_API_KEY = '';
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HOSTNAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
 const PROTOCOLS = Object.freeze(['http', 'https']);
@@ -96,14 +115,22 @@ export const DEFAULT_CONFIG = Object.freeze(
       thermometerName: '',
       lastConnectedAt: null
     },
-    /* Wound / AI detection endpoint (Roboflow serverless). `apiKey` defaults to
-       the embedded prototype key (see DEFAULT_WOUND_API_KEY above). */
+    /* Wound / AI detection endpoint. `provider` selects the engine: Google
+       Gemini (browser-direct, default) or the legacy Roboflow relay.
+       `apiKey` defaults to the embedded Roboflow prototype key (only used when
+       provider === 'roboflow'). `geminiApiKey` defaults to EMPTY — no Gemini
+       credential is embedded in client source; the user supplies their own key
+       from Google AI Studio in Settings. */
     woundAi: {
+      provider: DEFAULT_WOUND_PROVIDER,
       baseUrl: DEFAULT_WOUND_API_BASE_URL,
       modelId: DEFAULT_WOUND_MODEL_ID,
       version: DEFAULT_WOUND_MODEL_VERSION,
       apiKey: DEFAULT_WOUND_API_KEY,
-      confidenceThreshold: DEFAULT_WOUND_CONFIDENCE
+      confidenceThreshold: DEFAULT_WOUND_CONFIDENCE,
+      geminiModel: DEFAULT_GEMINI_MODEL,
+      geminiApiKey: DEFAULT_GEMINI_API_KEY,
+      relayUrl: DEFAULT_WOUND_RELAY_URL
     }
   })
 );
@@ -395,6 +422,17 @@ function sanitizeConfig(input) {
     config.woundAi.confidenceThreshold,
     DEFAULT_WOUND_CONFIDENCE
   );
+  // Provider must be exactly 'gemini' or 'roboflow' (case-insensitive input).
+  config.woundAi.provider = WOUND_PROVIDERS.includes(String(config.woundAi.provider).toLowerCase())
+    ? String(config.woundAi.provider).toLowerCase()
+    : DEFAULT_WOUND_PROVIDER;
+  config.woundAi.geminiModel =
+    String(config.woundAi.geminiModel ?? '').trim() || DEFAULT_GEMINI_MODEL;
+  config.woundAi.geminiApiKey = String(config.woundAi.geminiApiKey ?? '').trim(); // '' is valid
+  // Relay URL: trimmed, no trailing slashes; empty OR an http(s) origin is valid
+  // ('' means direct-to-Gemini mode and never raises a validation error).
+  const relayUrl = String(config.woundAi.relayUrl ?? '').trim().replace(/\/+$/, '');
+  config.woundAi.relayUrl = relayUrl === '' || /^https?:\/\//i.test(relayUrl) ? relayUrl : '';
 
   return config;
 }

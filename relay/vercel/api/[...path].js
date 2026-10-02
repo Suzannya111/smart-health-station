@@ -5,6 +5,16 @@
 
 const ROBOFLOW_BASE = 'https://serverless.roboflow.com';
 
+// --- Gemini vision proxy -----------------------------------------------------
+// Transparent proxy for the app's vision inference, reachable at
+// POST /api/gemini-generate?model=<model>. Google Gemini is blocked in the
+// user's region, so the request is re-issued from this function's egress.
+// The API key stays server-side and is never logged, echoed, or returned.
+const GEMINI_API_BASE =
+  'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+const GEMINI_TIMEOUT_MS = 45000;
+
 /** Read the raw request stream as a UTF-8 string. */
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -19,6 +29,66 @@ function readRawBody(req) {
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
+}
+
+/** Proxy a Gemini generateContent call and pass the JSON through unchanged. */
+async function handleGemini(req, res) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(
+      JSON.stringify({
+        error: 'server_misconfigured',
+        message: 'GEMINI_API_KEY is not set'
+      })
+    );
+  }
+
+  // Model resolution order: ?model= -> GEMINI_MODEL -> built-in default.
+  const requested = typeof req.query.model === 'string' ? req.query.model : '';
+  const model = requested || process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+  const target =
+    `${GEMINI_API_BASE}/${encodeURIComponent(model)}:generateContent` +
+    `?key=${encodeURIComponent(apiKey)}`;
+
+  // Forward the body verbatim (raw Gemini generateContent JSON).
+  const body = await readRawBody(req);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+  try {
+    const upstream = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body,
+      signal: controller.signal
+    });
+
+    const text = await upstream.text();
+    res.statusCode = upstream.status;
+    res.setHeader(
+      'Content-Type',
+      upstream.headers.get('content-type') || 'application/json'
+    );
+    res.end(text);
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      res.statusCode = 504;
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify({ error: 'upstream_timeout' }));
+    }
+    // Deliberately no detail: never surface the key or the keyed URL.
+    res.statusCode = 502;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'relay_error' }));
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -40,6 +110,11 @@ module.exports = async function handler(req, res) {
       : rawPath
         ? [rawPath]
         : [];
+
+    // Gemini proxy branch: POST /api/gemini-generate?model=...
+    if (segments.length === 1 && segments[0] === 'gemini-generate') {
+      return await handleGemini(req, res);
+    }
 
     // Keep every other query param (notably api_key), drop `path`.
     const params = new URLSearchParams();

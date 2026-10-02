@@ -1,0 +1,24 @@
+# render.yaml — one-click Render Blueprint for the smart-care relay.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# The relay is hosted in a US region so it can reach Google Gemini's API
+# (geo-blocked in the user's region) and Roboflow (WAF-blocked on the user's
+# network). Secrets are NEVER stored here — GEMINI_API_KEY uses `sync: false`
+# so Render prompts for it at deploy time.
+
+services:
+  - type: web
+    name: smart-care-wound-relay
+    runtime: node
+    rootDir: relay/render
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    region: oregon
+    envVars:
+      # Prompted at deploy time; the value is stored only in Render's dashboard.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Default model used when the request has no ?model= query param.
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash

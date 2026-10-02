@@ -205,6 +205,11 @@
                   data-i18n="wound.camera.switch" disabled>🔄 切換前後鏡頭</button>
         </div>
 
+        <!-- 醫療免責聲明：AI 結果僅供參考，非醫療診斷 -->
+        <p class="hint wound-disclaimer" data-i18n="wound.disclaimer">
+          ⚠️ 本結果由 AI 影像模型自動產生，僅供參考，並非醫療診斷。請尋求專業醫療人員的評估與處置。
+        </p>
+
         <div class="my-4">
           <button type="button" class="btn btn-motor-single btn-m2 w-full"
                   data-action="motor" data-motor="M2" data-endpoint="m2/fwd">
@@ -394,6 +399,31 @@
             <input id="lockMs" type="number" step="100" min="500" max="10000" value="2200">
           </div>
 
+          <div class="field">
+            <label for="woundProvider" data-i18n="settings.advanced.woundProvider">傷口辨識供應商</label>
+            <select id="woundProvider" class="select">
+              <option value="gemini" data-i18n="settings.advanced.provider.gemini">Google Gemini（預設）</option>
+              <option value="roboflow" data-i18n="settings.advanced.provider.roboflow">Roboflow</option>
+            </select>
+            <p class="hint" data-i18n="settings.advanced.woundProviderHint"></p>
+          </div>
+          <div class="field">
+            <label for="woundRelayUrl" data-i18n="settings.advanced.woundRelayUrl">傷口辨識 Relay 網址</label>
+            <input id="woundRelayUrl" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="https://smart-care-wound-relay.onrender.com">
+            <p class="hint" data-i18n="settings.advanced.woundRelayUrlHint"></p>
+          </div>
+          <div class="field">
+            <label for="woundGeminiApiKey" data-i18n="settings.advanced.geminiApiKey">Gemini API 金鑰</label>
+            <input id="woundGeminiApiKey" type="password" autocomplete="off" spellcheck="false">
+            <p class="hint" data-i18n="settings.advanced.geminiApiKeyHint"></p>
+          </div>
+          <div class="field">
+            <label for="woundGeminiModel" data-i18n="settings.advanced.geminiModel">Gemini 模型</label>
+            <input id="woundGeminiModel" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="gemini-3.8-flash">
+          </div>
+          <!-- 以下 Roboflow 欄位僅在供應商選擇 Roboflow 時使用 -->
           <div class="field">
             <label for="woundApiBaseUrl" data-i18n="settings.advanced.woundBaseUrl">傷口辨識 API 網址</label>
             <input id="woundApiBaseUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"

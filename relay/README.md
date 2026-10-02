@@ -33,6 +33,113 @@ Key behaviours:
 
 ---
 
+## Gemini vision proxy (`POST /gemini-generate`)
+
+Google Gemini is geo-blocked in the user's region. This relay re-issues the
+vision request from its own (US) egress so the static GitHub Pages app can run
+inference, and it keeps `GEMINI_API_KEY` **server-side** — the browser never
+sees it.
+
+**Endpoint**
+
+```
+POST /gemini-generate?model=<modelName>
+Content-Type: application/json
+Body: <Gemini generateContent JSON, sent verbatim>
+```
+
+Request body example (exactly the Gemini shape, forwarded unchanged):
+
+```json
+{
+  "contents": [
+    {
+      "parts": [
+        { "text": "..." },
+        { "inline_data": { "mime_type": "image/jpeg", "data": "..." } }
+      ]
+    }
+  ],
+  "generationConfig": { "temperature": 0.2 }
+}
+```
+
+The relay forwards it to:
+
+```
+https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key=...
+```
+
+and returns **Gemini's status code and JSON body unchanged**, so the client can
+keep reading `candidates[0].content.parts[0].text`.
+
+| Behaviour | Detail |
+| --- | --- |
+| Model resolution | `?model=` query param → `GEMINI_MODEL` env → default `gemini-3.8-flash` (URL-encoded) |
+| `GEMINI_API_KEY` missing | `500` `{ "error": "server_misconfigured", "message": "GEMINI_API_KEY is not set" }` — upstream is **not** called |
+| Upstream slower than ~45 s | `504` `{ "error": "upstream_timeout" }` |
+| Other upstream failure | `502` `{ "error": "relay_error" }` |
+| CORS | `Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods: GET, POST, OPTIONS`, `Access-Control-Allow-Headers: Content-Type`; `OPTIONS` → `204` |
+
+On **Vercel** the same endpoint lives under the catch-all, i.e.
+`POST /api/gemini-generate?model=...`.
+
+**Environment variables**
+
+| Name | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `GEMINI_API_KEY` | yes | — | Gemini key from Google AI Studio (server-side only) |
+| `GEMINI_MODEL` | no | `gemini-3.8-flash` | Default model used when `?model=` is omitted |
+| `ROBOFLOW_BASE` | no | `https://serverless.roboflow.com` | Roboflow passthrough upstream |
+
+> The API key is never logged, echoed, or included in any response — including
+> error responses — and never appears in a URL returned to the client.
+
+---
+
+## Deploy to Render (recommended)
+
+The repo ships a Render Blueprint ([`render.yaml`](../render.yaml)) that deploys
+the relay in a **US region** with one click — no CLI.
+
+1. Fork this repository (or point Render at the existing repo) so Render can
+   read `render.yaml`.
+2. Go to <https://render.com> and sign in.
+3. Click **New → Blueprint**.
+4. Select the repository that contains this project. Render reads `render.yaml`
+   automatically and proposes the `smart-care-wound-relay` web service (root dir
+   `relay/render`, build `npm install`, start `npm start`, free plan, region
+   `oregon`).
+5. When prompted, set **`GEMINI_API_KEY`** to a key from
+   [Google AI Studio](https://aistudio.google.com/app/apikey). The blueprint uses
+   `sync: false`, so the value is **never** stored in the repo — it lives only in
+   Render's dashboard.
+6. Click **Deploy** and wait for the build to finish.
+7. Copy the service URL, e.g. `https://smart-care-wound-relay.onrender.com`.
+
+`GEMINI_MODEL` is preset to `gemini-3.8-flash`. If Google renames or retires a
+model, change `GEMINI_MODEL` in **Render → your service → Environment** (or pass
+`?model=` per request) and restart — no code change is needed.
+
+> **Cold start:** the Render free tier sleeps after inactivity. The **first**
+> request after idle can take **30–60 s**. The Gemini proxy aborts upstream after
+> ~45 s, so a cold request may return `upstream_timeout`; once the instance is
+> warm, simply retry.
+
+### Connect the app
+
+After the deploy finishes, open the web app → **Settings → Advanced →
+傷口辨識 Relay 網址**, paste the Render service URL (bare origin, **no trailing
+slash** — e.g. `https://smart-care-wound-relay.onrender.com`), then click
+**Save**. With the relay URL set, the client routes Gemini vision calls through
+the relay, so no Gemini API key is needed in the browser.
+
+> **Free-tier cold start:** the first request after the service has been idle may
+> take **~30–60 s** to spin up. Let it finish, then retry once the instance is
+> warm.
+
+---
+
 ## Option A — Deploy on Render (recommended, no CLI)
 
 1. Put this project in a GitHub repository (or use the existing repo that
