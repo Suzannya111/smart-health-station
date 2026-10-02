@@ -110,6 +110,8 @@ export const STRINGS = Object.freeze({
     'weather.dev.toast.sunny': '已切換為：晴天模式 ☀️',
     'weather.dev.toast.cloudy': '已切換為：多雲模式 ☁️',
     'weather.dev.toast.rainy': '已切換為：下雨模式 🌧️ (雨衣解鎖)',
+    'weather.dev.hint': '僅供展示與測試使用；選「自動」會恢復讀取澳門即時天氣。',
+    'weather.dev.toast.auto': '已恢復：自動讀取澳門即時天氣 🌐',
 
     /* ---- settings: shell / sections ---------------------------------- */
     'settings.open': '設定',
@@ -157,6 +159,8 @@ export const STRINGS = Object.freeze({
     'settings.advanced.acceptAll': '接受所有裝置',
     'settings.advanced.lockMs': '馬達按鈕鎖定 (毫秒)',
     'settings.advanced.woundBaseUrl': '傷口辨識 API 網址',
+    'settings.advanced.woundBaseUrlHint':
+      '需填入中繼服務（relay）網址：Render 用裸網址，如 https://your-service.onrender.com（結尾不加斜線）；Vercel 需含 /api，如 https://your-project.vercel.app/api。',
     'settings.advanced.woundModelId': '傷口辨識模型 ID',
     'settings.advanced.woundModelVersion': '模型版本',
     'settings.advanced.woundApiKey': 'API 金鑰',
@@ -274,6 +278,8 @@ export const STRINGS = Object.freeze({
     'weather.dev.toast.sunny': '已切换为：晴天模式 ☀️',
     'weather.dev.toast.cloudy': '已切换为：多云模式 ☁️',
     'weather.dev.toast.rainy': '已切换为：下雨模式 🌧️ (雨衣解锁)',
+    'weather.dev.hint': '仅供展示与测试使用；选「自动」会恢复读取澳门实时天气。',
+    'weather.dev.toast.auto': '已恢复：自动读取澳门实时天气 🌐',
 
     'settings.open': '设置',
     'settings.title': '系统设置',
@@ -315,6 +321,8 @@ export const STRINGS = Object.freeze({
     'settings.advanced.acceptAll': '接受所有设备',
     'settings.advanced.lockMs': '马达按钮锁定 (毫秒)',
     'settings.advanced.woundBaseUrl': '伤口识别 API 网址',
+    'settings.advanced.woundBaseUrlHint':
+      '需填入中继服务（relay）网址：Render 用裸网址，如 https://your-service.onrender.com（结尾不加斜线）；Vercel 需含 /api，如 https://your-project.vercel.app/api。',
     'settings.advanced.woundModelId': '伤口识别模型 ID',
     'settings.advanced.woundModelVersion': '模型版本',
     'settings.advanced.woundApiKey': 'API 密钥',
@@ -425,6 +433,8 @@ export const STRINGS = Object.freeze({
     'weather.dev.toast.sunny': 'Switched to: Sunny mode ☀️',
     'weather.dev.toast.cloudy': 'Switched to: Cloudy mode ☁️',
     'weather.dev.toast.rainy': 'Switched to: Rainy mode 🌧️ (raincoat unlocked)',
+    'weather.dev.hint': 'For demo/testing only — Auto restores live Macau weather.',
+    'weather.dev.toast.auto': 'Restored: auto-fetching live Macau weather 🌐',
 
     'settings.open': 'Settings',
     'settings.title': 'Settings',
@@ -467,6 +477,8 @@ export const STRINGS = Object.freeze({
     'settings.advanced.acceptAll': 'Accept all devices',
     'settings.advanced.lockMs': 'Motor button lock (ms)',
     'settings.advanced.woundBaseUrl': 'Wound detection API URL',
+    'settings.advanced.woundBaseUrlHint':
+      'A relay is required. Render: bare origin, e.g. https://your-service.onrender.com (no trailing slash). Vercel: must include /api, e.g. https://your-project.vercel.app/api.',
     'settings.advanced.woundModelId': 'Wound detection model ID',
     'settings.advanced.woundModelVersion': 'Model version',
     'settings.advanced.woundApiKey': 'API key',
@@ -578,6 +590,8 @@ export const STRINGS = Object.freeze({
     'weather.dev.toast.sunny': 'Alterado para: modo Sol ☀️',
     'weather.dev.toast.cloudy': 'Alterado para: modo Nublado ☁️',
     'weather.dev.toast.rainy': 'Alterado para: modo Chuva 🌧️ (capa de chuva desbloqueada)',
+    'weather.dev.hint': 'Apenas para demonstração/testes — Auto repõe o tempo real de Macau.',
+    'weather.dev.toast.auto': 'Restaurado: tempo real de Macau automático 🌐',
 
     'settings.open': 'Definições',
     'settings.title': 'Definições',
@@ -620,6 +634,8 @@ export const STRINGS = Object.freeze({
     'settings.advanced.acceptAll': 'Aceitar todos os dispositivos',
     'settings.advanced.lockMs': 'Bloqueio do botão (ms)',
     'settings.advanced.woundBaseUrl': 'URL da API de deteção de feridas',
+    'settings.advanced.woundBaseUrlHint':
+      'É necessário um relay. Render: origem simples, p. ex. https://your-service.onrender.com (sem barra final). Vercel: tem de incluir /api, p. ex. https://your-project.vercel.app/api.',
     'settings.advanced.woundModelId': 'ID do modelo de deteção de feridas',
     'settings.advanced.woundModelVersion': 'Versão do modelo',
     'settings.advanced.woundApiKey': 'Chave de API',

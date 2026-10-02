@@ -647,6 +647,32 @@ input[aria-invalid='true'] {
   margin-bottom: 10px;
 }
 
+/* --- developer weather override ---------------------------------------- */
+
+.weather-dev {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.weather-dev > label {
+  display: block;
+  font-weight: 700;
+  color: var(--primary-blue);
+}
+
+.weather-dev .select {
+  margin-top: var(--space-2);
+}
+
+.weather-dev .hint {
+  margin-top: var(--space-2);
+  color: var(--text-sub);
+  font-size: var(--font-size-sm);
+}
+
 /* --- guided connect wizard --------------------------------------------- */
 
 .wizard {

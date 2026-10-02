@@ -94,6 +94,23 @@ function looksLikeBlockPage(contentType, text) {
 }
 
 /**
+ * 依設定的 baseUrl 產生候選端點前綴（去重、保留設定的值優先）。
+ * - 設定的 baseUrl 本身（已去除結尾斜線）。
+ * - 若結尾不是 `/api`，再加上 `baseUrl + '/api'`，相容 Vercel 的函式路徑。
+ * 讓「裸網址（Render）」與「含 /api（Vercel）」兩種形式都能自動嘗試，
+ * 使用者無須知道後端實際部署方式。
+ * @param {string} baseUrl
+ * @returns {string[]}
+ */
+function buildCandidateBaseUrls(baseUrl) {
+  const trimmed = String(baseUrl || '').trim().replace(/\/+$/, '');
+  const candidates = [trimmed];
+  if (!/\/api$/i.test(trimmed)) candidates.push(`${trimmed}/api`);
+  // 去重並保留順序（設定的值優先）。
+  return candidates.filter((value, index) => value && candidates.indexOf(value) === index);
+}
+
+/**
  * 呼叫 Roboflow serverless 端點取得預測結果。
  * 失敗時一律丟出帶 `reason` 的 {@link WoundDetectionError}。
  * @param {{ baseUrl: string, modelId: string, version: string, apiKey: string }} cfg
@@ -114,25 +131,60 @@ async function requestPredictions(cfg, base64Data) {
     throw new WoundDetectionError(FALLBACK_REASON.NO_KEY, '傷口辨識 API 設定不完整');
   }
 
+  // 依設定值產生候選端點，自動相容裸網址（Render）與含 `/api`（Vercel）兩種形式。
   // 以標準 query 傳遞金鑰，避免觸發 OPTIONS preflight；
   // 直接呼叫（不使用任何第三方 CORS 代理）。
-  const endpoint =
-    `${cfg.baseUrl}/${cfg.modelId}/${cfg.version}?api_key=${encodeURIComponent(cfg.apiKey)}`;
+  const candidates = buildCandidateBaseUrls(cfg.baseUrl);
+  const query = `?api_key=${encodeURIComponent(cfg.apiKey)}`;
 
-  const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  let timer = null;
-  if (controller) timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let response = null;
+  /** 最近一次收到的 404 / 405 回應（所有候選皆如此時仍可對應 NOT_FOUND）。 */
+  let lastPathMissResponse = null;
+  /** 最近一次連線層的錯誤（TypeError / AbortError）。 */
+  let lastError = null;
 
-  let response;
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: base64Data,
-      ...(controller ? { signal: controller.signal } : {})
-    });
-  } catch (error) {
-    if (error && (error.name === 'AbortError' || error.code === 20)) {
+  for (let i = 0; i < candidates.length; i += 1) {
+    const endpoint = `${candidates[i]}/${cfg.modelId}/${cfg.version}${query}`;
+
+    // 每個候選各自擁有 30s 逾時，避免前一次的計時器影響下一次嘗試。
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    let timer = null;
+    if (controller) timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    let attemptResponse;
+    try {
+      attemptResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: base64Data,
+        ...(controller ? { signal: controller.signal } : {})
+      });
+    } catch (error) {
+      // TypeError === 網路中斷或 CORS 被阻擋（原始 "Failed to fetch" 來源）；換下一個候選。
+      lastError = error;
+      continue;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+
+    // 404 / 405 代表此 base 形式的路徑不存在，換下一個候選端點再試。
+    if (attemptResponse.status === 404 || attemptResponse.status === 405) {
+      lastPathMissResponse = attemptResponse;
+      lastError = null;
+      continue;
+    }
+
+    // 其他任何狀態（含 401/403 與其他 4xx/5xx）即採用此回應，交後續對應處理。
+    response = attemptResponse;
+    break;
+  }
+
+  // 若無「確定」的回應，退回最後一次的 404/405（保留 NOT_FOUND 對應）。
+  if (!response) response = lastPathMissResponse;
+
+  // 所有候選都在連線層失敗（被拒或因逾時中止）→ 保留原本的 TRANSPORT / TIMEOUT 行為。
+  if (!response) {
+    if (lastError && (lastError.name === 'AbortError' || lastError.code === 20)) {
       throw new WoundDetectionError(FALLBACK_REASON.TIMEOUT, `請求逾時（${FETCH_TIMEOUT_MS} ms）`);
     }
     // TypeError === 網路中斷或 CORS 被阻擋（原始 "Failed to fetch" 來源）。
@@ -140,8 +192,6 @@ async function requestPredictions(cfg, base64Data) {
       FALLBACK_REASON.TRANSPORT,
       '無法連線至傷口辨識服務（網路或 CORS 限制）'
     );
-  } finally {
-    if (timer) clearTimeout(timer);
   }
 
   // 內文僅讀取一次：成功路徑解析 JSON，失敗路徑用來判斷是否為 HTML / 封鎖頁。

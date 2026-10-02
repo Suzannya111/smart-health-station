@@ -363,15 +363,16 @@
         <details class="advanced" open>
           <summary data-i18n="settings.advanced.summary">進階設定與開發者工具</summary>
 
-          <!-- 新增開發者天氣模擬選擇 -->
-          <div class="field" style="margin-top: 10px; background: #f3f4f6; padding: 10px; border-radius: 8px;">
-            <label for="devWeatherSelect" data-i18n="weather.dev.title" style="font-weight: bold; color: #1d4ed8;">⚡ 開發者測試：模擬天氣控制</label>
-            <select id="devWeatherSelect" class="select" style="margin-top: 5px;">
+          <!-- 開發者天氣模擬控制 -->
+          <div class="field weather-dev">
+            <label for="devWeatherSelect" data-i18n="weather.dev.title">⚡ 開發者測試：模擬天氣控制</label>
+            <select id="devWeatherSelect" class="select" data-i18n-attr="aria-label:weather.dev.title">
               <option value="auto" data-i18n="weather.dev.option.auto">🌐 自動讀取澳門真實天氣 (預設)</option>
               <option value="sunny" data-i18n="weather.dev.option.sunny">☀️ 晴天 (Sun / 0% 雨)</option>
               <option value="cloudy" data-i18n="weather.dev.option.cloudy">☁️ 多雲 (Cloudy / 20% 雨)</option>
               <option value="rainy" data-i18n="weather.dev.option.rainy">🌧️ 下雨 (Rainy / 90% 雨 - 解鎖雨衣發放)</option>
             </select>
+            <p class="hint" data-i18n="weather.dev.hint"></p>
           </div>
 
           <div class="field mt-3">
@@ -396,7 +397,8 @@
           <div class="field">
             <label for="woundApiBaseUrl" data-i18n="settings.advanced.woundBaseUrl">傷口辨識 API 網址</label>
             <input id="woundApiBaseUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"
-                   placeholder="https://serverless.roboflow.com">
+                   placeholder="https://your-relay.onrender.com">
+            <p class="hint" data-i18n="settings.advanced.woundBaseUrlHint"></p>
           </div>
           <div class="field">
             <label for="woundModelId" data-i18n="settings.advanced.woundModelId">模型 ID</label>

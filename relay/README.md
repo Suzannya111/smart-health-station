@@ -61,7 +61,9 @@ Key behaviours:
 4. Leave the build settings on their defaults (no build step; the function uses
    CommonJS so no `package.json` is needed).
 5. Click **Deploy**, then copy the public URL, e.g.
-   `https://smart-care-wound-relay.vercel.app`.
+   `https://smart-care-wound-relay.vercel.app`. **When entering this in the app,
+   append `/api`** (see below) — the relay function is only reachable under
+   `/api/*`.
 
 ---
 
@@ -70,10 +72,17 @@ Key behaviours:
 1. Open the Smart Care app.
 2. Go to **Settings → Advanced**.
 3. Find the **傷口辨識 API 網址** field.
-4. Paste the relay URL **with no trailing slash**, e.g.
-   `https://smart-care-wound-relay.onrender.com`.
+4. Paste the relay URL **with no trailing slash**, using the form that matches
+   where you deployed it:
+   - **Render (Option A):** the bare origin, e.g.
+     `https://smart-care-wound-relay.onrender.com`
+   - **Vercel (Option B):** the origin **plus `/api`**, e.g.
+     `https://smart-care-wound-relay.vercel.app/api`
 5. Click **Save**.
 6. Retest the wound-detection feature.
+
+> The app now also auto-retries the `/api` variant when the first attempt returns
+> `404`/`405`, but entering the correct form above is still recommended.
 
 Leave **Model ID** `wound-object-detection`, **Version** `1`, and the **API key**
 unchanged — the relay expects them exactly as the app already sends them.

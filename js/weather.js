@@ -3,6 +3,7 @@
  */
 
 import { i18n } from './i18n/index.js';
+import { showToast as showAppToast } from './core/toast.js';
 
 /** Shorthand translator bound to the shared i18n singleton. */
 const t = (key, params) => i18n.t(key, params);
@@ -16,6 +17,20 @@ const weatherStateText = document.getElementById('weatherStateText');
 const tempRainText = document.getElementById('tempRainText');
 const btnRaincoat = document.getElementById('btnRaincoat');
 const devWeatherSelect = document.getElementById('devWeatherSelect');
+
+/* --- developer weather override (debug only) ---------------------------- */
+/** localStorage key for the persisted dev weather override (NOT in config schema). */
+const WEATHER_OVERRIDE_KEY = 'smart_care.weatherOverride';
+/** Values accepted by the override control. */
+const OVERRIDE_VALUES = ['auto', 'sunny', 'cloudy', 'rainy'];
+/** Simulated states applied when an override is selected. */
+const OVERRIDES = {
+  sunny: { temp: 28, rainProb: 0, toast: 'weather.dev.toast.sunny' },
+  cloudy: { temp: 24, rainProb: 20, toast: 'weather.dev.toast.cloudy' },
+  rainy: { temp: 20, rainProb: 90, toast: 'weather.dev.toast.rainy' }
+};
+/** When true, live fetches must not clobber the manual override. */
+let overrideActive = false;
 
 let currentWeatherMode = 'sunny';
 
@@ -84,12 +99,59 @@ function setRaincoatButtonActive(isRainy) {
   }
 }
 
+/* --- developer weather override helpers --------------------------------- */
+
+/** Read the persisted override; falls back to 'auto' when unset/invalid. */
+function readOverride() {
+  try {
+    const val = localStorage.getItem(WEATHER_OVERRIDE_KEY);
+    return OVERRIDE_VALUES.includes(val) ? val : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+/** Persist the override ('auto' clears the stored entry). */
+function writeOverride(val) {
+  try {
+    if (val === 'auto') {
+      localStorage.removeItem(WEATHER_OVERRIDE_KEY);
+    } else {
+      localStorage.setItem(WEATHER_OVERRIDE_KEY, val);
+    }
+  } catch {
+    /* storage unavailable — override stays session-only */
+  }
+}
+
+/** Apply a developer override chosen in the Advanced Settings control. */
+function applyOverride(val) {
+  if (val === 'auto') {
+    overrideActive = false;
+    writeOverride('auto');
+    fetchMacauWeather(); // restore live weather
+    showAppToast(t('weather.dev.toast.auto'), { type: 'success' });
+    return;
+  }
+
+  const cfg = OVERRIDES[val];
+  if (!cfg) return;
+
+  overrideActive = true;
+  writeOverride(val);
+  applyWeatherState(val, cfg.temp, cfg.rainProb);
+  showToast(t(cfg.toast));
+}
+
 async function fetchMacauWeather() {
   try {
     const response = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${MACAU_LAT}&longitude=${MACAU_LON}&current=temperature_2m,rain,showers,weather_code&hourly=precipitation_probability&forecast_days=1`
     );
     const data = await response.json();
+
+    // A manual override selected while this fetch was in flight wins.
+    if (overrideActive) return;
 
     const temp = Math.round(data.current.temperature_2m || 25);
     const rain = data.current.rain || 0;
@@ -105,6 +167,7 @@ async function fetchMacauWeather() {
     }
   } catch (err) {
     console.warn('天氣 API 連線異常，啟用預設晴天模式:', err);
+    if (overrideActive) return; // keep the manual override
     applyWeatherState('sunny', 26, 0);
   }
 }
@@ -118,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
   weatherStateText?.removeAttribute('data-i18n-attr');
 
   updateDateDisplay();
-  fetchMacauWeather();
 
   if (btnRaincoat) {
     btnRaincoat.addEventListener('click', () => {
@@ -135,21 +197,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (devWeatherSelect) {
-    devWeatherSelect.addEventListener('change', (e) => {
-      const val = e.target.value;
-      if (val === 'auto') {
-        fetchMacauWeather();
-      } else if (val === 'sunny') {
-        applyWeatherState('sunny', 28, 0);
-        showToast(t('weather.dev.toast.sunny'));
-      } else if (val === 'cloudy') {
-        applyWeatherState('cloudy', 24, 20);
-        showToast(t('weather.dev.toast.cloudy'));
-      } else if (val === 'rainy') {
-        applyWeatherState('rainy', 20, 90);
-        showToast(t('weather.dev.toast.rainy'));
-      }
-    });
+    devWeatherSelect.addEventListener('change', (e) => applyOverride(e.target.value));
+
+    // Restore a persisted override, otherwise fall back to the live API.
+    const stored = readOverride();
+    if (stored !== 'auto' && OVERRIDES[stored]) {
+      devWeatherSelect.value = stored;
+      applyOverride(stored);
+    } else {
+      devWeatherSelect.value = 'auto';
+      fetchMacauWeather();
+    }
+  } else {
+    fetchMacauWeather();
   }
 
   // Weather text is written imperatively, so re-render it on language change.
