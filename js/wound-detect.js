@@ -23,6 +23,7 @@ const FALLBACK_REASON = Object.freeze({
   TIMEOUT: 'timeout', // AbortController 逾時
   TRANSPORT: 'transport', // TypeError：網路中斷或 CORS 被阻擋
   AUTH: 'auth', // HTTP 400 / 401 / 403：金鑰無效或權限不足
+  REGION: 'region', // HTTP 400 + FAILED_PRECONDITION：Gemini 不支援此地區直連
   NOT_FOUND: 'not-found', // HTTP 404：找不到模型或版本
   HTTP: 'http', // 其他非 2xx 狀態（含 429 / 5xx），或 2xx 但內容非 JSON
   BLOCKED: 'blocked' // 非 JSON（HTML）回應：防火牆 / Cloudflare 封鎖頁
@@ -318,6 +319,21 @@ async function analyzeWithGemini(imageBase64, cfg) {
         throw new WoundDetectionError(FALLBACK_REASON.HTTP, i18n.t('wound.error.http'));
       }
     }
+    // 直連模式的 400：Google 會以 FAILED_PRECONDITION 表示「地區不支援」，
+    // 這不是金鑰問題，必須與 AUTH 區分，避免誤導使用者。內文只讀取一次且絕不因非 JSON 丟錯。
+    if (!relayMode && response.status === 400) {
+      const geminiError = await readRelayError(response);
+      const apiError =
+        geminiError && typeof geminiError.error === 'object' ? geminiError.error : {};
+      const apiStatus = String(apiError.status || '');
+      const apiMessage = String(apiError.message || '').toLowerCase();
+      if (apiStatus === 'FAILED_PRECONDITION' || apiMessage.includes('location is not supported')) {
+        throw new WoundDetectionError(
+          FALLBACK_REASON.REGION,
+          i18n.t('wound.error.regionUnsupported')
+        );
+      }
+    }
     if (response.status === 400 || response.status === 401 || response.status === 403) {
       throw new WoundDetectionError(FALLBACK_REASON.AUTH, i18n.t('wound.error.auth'));
     }
@@ -520,6 +536,8 @@ function fallbackHeadline(reason) {
       return '⏱️ AI 服務連線逾時。';
     case FALLBACK_REASON.AUTH:
       return '🔒 API 金鑰無效或已失效。';
+    case FALLBACK_REASON.REGION:
+      return `🌍 ${i18n.t('wound.error.regionUnsupported')}`;
     case FALLBACK_REASON.BLOCKED:
       return '🚫 AI 服務的防火牆阻擋了連線（HTTP 403）。這通常不是金鑰問題——請改用其他網路或代理服務後再試。';
     case FALLBACK_REASON.NOT_FOUND:

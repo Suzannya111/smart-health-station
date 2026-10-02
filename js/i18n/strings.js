@@ -104,6 +104,8 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': '無法連線至 Gemini 服務（網路或 CORS 限制）。',
     'wound.error.timeout': 'Gemini 服務連線逾時。',
     'wound.error.http': 'Gemini 服務回應錯誤或資料格式無法解析。',
+    'wound.error.regionUnsupported':
+      'Gemini 不支援你所在的地區直接呼叫——請部署／設定中繼（relay），並在「設定 → 進階設定」貼上其網址（傷口辨識 Relay 網址）；在此地區單憑 Gemini API 金鑰無法使用。',
 
     /* ---- weather: home panel & developer tools ----------------------- */
     'weather.condition.sunny': '晴朗',
@@ -189,7 +191,7 @@ export const STRINGS = Object.freeze({
       '部署中繼服務（見 relay/README.md）後，將網址（例如 https://smart-care-wound-relay.onrender.com）貼在此處；設定後 Gemini 會改由中繼呼叫，瀏覽器無需 Gemini 金鑰。',
     'settings.advanced.geminiApiKey': 'Gemini API 金鑰',
     'settings.advanced.geminiApiKeyHint':
-      '僅在未設定中繼網址時才需要；直連模式還需位於支援 Gemini 的地區。金鑰僅儲存在此裝置的瀏覽器。',
+      '已設定中繼網址（Relay）時，請將此欄留空（金鑰只需放在中繼伺服器）；此處輸入的金鑰僅用於直連呼叫，且僅在 Google 支援的地區有效。金鑰僅儲存在此裝置的瀏覽器。',
     'settings.advanced.geminiModel': 'Gemini 模型',
     'settings.advanced.woundHint':
       '金鑰僅儲存在此裝置的瀏覽器；未設定時傷口檢驗會顯示離線模擬結果。',
@@ -298,6 +300,8 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': '无法连接至 Gemini 服务（网络或 CORS 限制）。',
     'wound.error.timeout': 'Gemini 服务连接超时。',
     'wound.error.http': 'Gemini 服务响应错误或数据格式无法解析。',
+    'wound.error.regionUnsupported':
+      'Gemini 不支持你所在的地区直接调用——请部署／设置中继（relay），并在「设置 → 高级设置」粘贴其网址（伤口识别 Relay 网址）；在此地区仅凭 Gemini API 密钥无法使用。',
 
     /* ---- weather: home panel & developer tools ----------------------- */
     'weather.condition.sunny': '晴朗',
@@ -377,7 +381,7 @@ export const STRINGS = Object.freeze({
       '部署中继服务（见 relay/README.md）后，将网址（例如 https://smart-care-wound-relay.onrender.com）粘贴在此处；设置后 Gemini 将改由中继调用，浏览器无需 Gemini 密钥。',
     'settings.advanced.geminiApiKey': 'Gemini API 密钥',
     'settings.advanced.geminiApiKeyHint':
-      '仅在未设置中继网址时才需要；直连模式还需位于支持 Gemini 的地区。密钥仅存储在此设备的浏览器。',
+      '已设置中继网址（Relay）时，请将此栏留空（密钥只需放在中继服务器）；此处输入的密钥仅用于直连调用，且仅在 Google 支持的地区有效。密钥仅存储在此设备的浏览器。',
     'settings.advanced.geminiModel': 'Gemini 模型',
     'settings.advanced.woundHint': '密钥仅存储在此设备的浏览器；未设置时伤口检验会显示离线模拟结果。',
     'settings.resetAll': '恢复默认值',
@@ -481,6 +485,8 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': 'Could not reach the Gemini service (network or CORS restriction).',
     'wound.error.timeout': 'The Gemini service request timed out.',
     'wound.error.http': 'Gemini service error, or the response format could not be parsed.',
+    'wound.error.regionUnsupported':
+      'Gemini does not support direct calls from your region — deploy/configure the relay and paste its URL in Settings → Advanced (Wound detection relay URL); a Gemini API key alone will not work in this region.',
 
     /* ---- weather: home panel & developer tools ----------------------- */
     'weather.condition.sunny': 'Sunny',
@@ -561,7 +567,7 @@ export const STRINGS = Object.freeze({
       'Deploy the relay (see relay/README.md), then paste its URL here, e.g. https://smart-care-wound-relay.onrender.com. When set, Gemini is called via the relay and no Gemini key is needed in the browser.',
     'settings.advanced.geminiApiKey': 'Gemini API key',
     'settings.advanced.geminiApiKeyHint':
-      'Only needed when the relay URL is empty; direct calls also require a supported region. Get a free key from Google AI Studio and paste it here; it is stored only in this browser.',
+      'Leave this field EMPTY when a relay URL is set (the key then lives only on the relay server); a key entered here is used only for direct calls and only works from Google-supported regions. It is stored only in this browser.',
     'settings.advanced.geminiModel': 'Gemini model',
     'settings.advanced.woundHint':
       'The key is stored only in this browser; when unset, wound detection shows an offline simulated result.',
@@ -667,6 +673,8 @@ export const STRINGS = Object.freeze({
       'Não foi possível contactar o serviço Gemini (restrição de rede ou CORS).',
     'wound.error.timeout': 'O pedido ao serviço Gemini excedeu o tempo limite.',
     'wound.error.http': 'Erro do serviço Gemini, ou o formato da resposta não pôde ser analisado.',
+    'wound.error.regionUnsupported':
+      'O Gemini não suporta chamadas diretas a partir da sua região — implemente/configure o relay e cole o URL em Definições → Avançado (URL do relay de deteção de feridas); uma chave de API Gemini, por si só, não funciona nesta região.',
 
     /* ---- weather: home panel & developer tools ----------------------- */
     'weather.condition.sunny': 'Céu limpo',
@@ -747,7 +755,7 @@ export const STRINGS = Object.freeze({
       'Implemente o relay (ver relay/README.md) e cole aqui o seu URL, p. ex. https://smart-care-wound-relay.onrender.com. Quando definido, o Gemini é chamado através do relay e não é necessária nenhuma chave Gemini no navegador.',
     'settings.advanced.geminiApiKey': 'Chave de API Gemini',
     'settings.advanced.geminiApiKeyHint':
-      'Só é necessária quando o URL do relay está vazio; as chamadas diretas também exigem uma região suportada. Obtenha uma chave gratuita no Google AI Studio e cole-a aqui; é guardada apenas neste navegador.',
+      'Deixe este campo VAZIO quando um URL de relay estiver definido (a chave fica então apenas no servidor de relay); uma chave aqui introduzida é usada apenas para chamadas diretas e só funciona em regiões suportadas pela Google. É guardada apenas neste navegador.',
     'settings.advanced.geminiModel': 'Modelo Gemini',
     'settings.advanced.woundHint':
       'A chave é guardada apenas neste navegador; quando não definida, a deteção mostra um resultado simulado offline.',
