@@ -186,12 +186,6 @@ export function createI18n({ config = null, bus = defaultBus, autoApply = false 
     }
   }
 
-  /** The locale-specific Google Maps query (values preserved verbatim). */
-  function getMapQuery(locale = lang) {
-    const table = STRINGS[locale] || STRINGS[DEFAULT_LOCALE];
-    return table.mapQuery || STRINGS[DEFAULT_LOCALE].mapQuery;
-  }
-
   /** Point the instance at a fresh config snapshot ({threshold} source). */
   function setConfig(next) {
     if (next) configRef = next;
@@ -224,7 +218,6 @@ export function createI18n({ config = null, bus = defaultBus, autoApply = false 
     setLanguage,
     onLanguageChange,
     applyToDOM,
-    getMapQuery,
     getThreshold,
     formatThreshold,
     setConfig,

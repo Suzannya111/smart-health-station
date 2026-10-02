@@ -303,11 +303,47 @@
   background: var(--surface-soft);
 }
 
-.map-box iframe {
+.map-box .leaflet-map {
   width: 100%;
   height: 100%;
-  border: none;
   display: block;
+  background: var(--surface-soft);
+}
+
+.leaflet-container,
+.map-box .leaflet-container {
+  font: inherit;
+}
+
+.map-facility-icon {
+  font-size: 20px;
+  line-height: 24px;
+  text-align: center;
+}
+
+/* facility popup (all text inserted via textContent — see js/ui/maps.js) */
+.map-facility-popup__title {
+  font-weight: 700;
+}
+
+.map-facility-popup__type {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  margin: 2px 0 6px;
+}
+
+.map-facility-popup__directions {
+  color: var(--primary-blue);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Leaflet-unavailable fallback link (progressive enhancement) */
+.map-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
 .map-title {

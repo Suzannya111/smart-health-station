@@ -1,64 +1,90 @@
 /**
- * Smart Care — lazy Google Maps controller (blueprint §5 item 5 / S11).
+ * Smart Care — Leaflet + OpenStreetMap combined-map controller.
  *
- * The two iframes (`#homeMapFrame`, `#alertMapFrame`) ship with an EMPTY src in
- * index.html. This module fills them in ONLY when a view containing a map is
- * first shown (lazy), preserving:
- *   - the exact facilities URL template:
- *       https://maps.google.com/maps?q=<encoded q>&ll=<lat>,<lng>&z=14&output=embed
- *   - the no-coordinates fallback (omit `ll`):
- *       https://maps.google.com/maps?q=<encoded q>&output=embed
- *   - the per-locale `mapQuery` values (from i18n, unchanged)
- *   - a graceful no-geolocation path (maps still render, default area)
+ * Replaces the old keyless Google Maps `<iframe>` embeds. Each map view renders
+ * ONE Leaflet map that shows, simultaneously:
+ *   1. the user's recent location (blue circleMarker + accuracy circle), and
+ *   2. nearby medical institutions fetched (keyless) from the Overpass API.
  *
- * "Show my recent location": the Home map gains a two-mode view built around
- * the keyless embed's single-pin limitation:
- *   - `facilities` mode (default): today's behaviour (`q=<mapQuery>`).
- *   - `person` mode: `q=<lat>,<lng>&z=16` → a pin exactly at the user position.
+ * Design notes:
+ *   - Leaflet is loaded as a classic <script> in index.html, so `window.L`
+ *     exists before the deferred ES modules run. We still guard defensively.
+ *   - Views never unmount (the router only toggles `.is-active`), so maps are
+ *     created once per view (`ensureMap`) and never torn down.
+ *   - Home and Alert share the Overpass cache + in-flight request, so a common
+ *     centre results in a SINGLE network request.
+ *   - All popup content is built with DOM nodes + `textContent` (OSM names are
+ *     untrusted — never interpolate them into `innerHTML`).
  *
  * Geolocation + last-known persistence live in `js/ui/location.js`; this module
- * only renders and owns the locate control. On Home activation a stored
- * location is rendered immediately, then a fresh fix is requested (one-shot,
- * manual retry via the button). The Alert map stays facilities-only.
+ * only renders and owns the locate control.
  */
 
 import { EVENT_NAMES } from '../core/bus.js';
 import { delegate, setDisabled } from '../core/dom.js';
 import { showToast } from '../core/toast.js';
 
-/** Which preserved views contain a map, and the iframe id inside each. */
-export const MAP_FRAMES = Object.freeze({
-  viewHome: 'homeMapFrame',
-  viewAlert: 'alertMapFrame'
+/** Leaflet UMD global — guarded so a missing CDN degrades gracefully. */
+const L = (typeof window !== 'undefined' && window.L) || null;
+
+/** Which preserved views contain a map, and the container id inside each. */
+export const MAP_IDS = Object.freeze({
+  viewHome: 'homeMap',
+  viewAlert: 'alertMap'
 });
 
 /** The only view that participates in the recent-location feature. */
 const LOCATION_VIEW = 'viewHome';
 
-/**
- * Build the Google Maps embed URL.
- * @param {string} query the locale-specific `mapQuery` value (verbatim)
- * @param {{ latitude: number, longitude: number } | null} position
- * @param {'facilities'|'person'} [mode='facilities']
- *   `'person'` places a pin at `position` (needs valid coords); otherwise the
- *   facilities search is rendered with `ll=` centering when coords are known.
- * @returns {string}
- */
-export function buildMapUrl(query, position, mode = 'facilities') {
-  const hasPosition =
-    Boolean(position) &&
-    Number.isFinite(position.latitude) &&
-    Number.isFinite(position.longitude);
+/** Default map centre when no stored/live location exists (Macau — mirrors js/weather.js). */
+const DEFAULT_CENTER = Object.freeze([22.1987, 113.5439]);
 
-  if (mode === 'person' && hasPosition) {
-    return `https://maps.google.com/maps?q=${position.latitude},${position.longitude}&z=16&output=embed`;
-  }
+/** Nearby-facility search radius (metres). */
+const FACILITY_RADIUS = 3000;
 
-  const base = `https://maps.google.com/maps?q=${encodeURIComponent(query || '')}`;
-  if (hasPosition) {
-    return `${base}&ll=${position.latitude},${position.longitude}&z=14&output=embed`;
-  }
-  return `${base}&output=embed`;
+/** Overpass endpoints — primary first, mirror on failure. */
+const OVERPASS_ENDPOINTS = Object.freeze([
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+]);
+
+/** Amenities queried from OpenStreetMap. */
+const FACILITY_AMENITIES = Object.freeze(['hospital', 'clinic', 'doctors', 'pharmacy', 'dentist']);
+
+/** Facility cache TTL (10 minutes). */
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+/** Client-side Overpass timeout (server timeout is 25 s). */
+const OVERPASS_TIMEOUT_MS = 12000;
+
+/** Re-fetch only when the centre moved more than this (metres). */
+const MOVE_THRESHOLD_M = 250;
+
+/** Back-off window after an Overpass rate-limit response (429/504). */
+const BACKOFF_MS = 60000;
+
+/** Clamp the accuracy circle so a huge fix never covers the whole city. */
+const ACCURACY_CLAMP_M = 5000;
+
+/** Emoji per amenity (static constants — safe in a divIcon `html` string). */
+const FACILITY_ICONS = Object.freeze({
+  hospital: '🏥',
+  clinic: '🩺',
+  doctors: '👨‍⚕️',
+  pharmacy: '💊',
+  dentist: '🦷'
+});
+
+/** Great-circle distance between two {lat,lng} points, in metres. */
+function distanceMeters(a, b) {
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 /**
@@ -67,53 +93,372 @@ export function buildMapUrl(query, position, mode = 'facilities') {
 export function createMaps({ bus, i18n, router, location }) {
   /** @type {{ latitude: number, longitude: number } | null} */
   let coords = null;
-  /** @type {'facilities'|'person'} */
-  let mode = 'facilities';
+  /** Last reported accuracy in metres (or null). */
+  let accuracy = null;
   /** Ensure the automatic fix is requested at most once per session. */
   let geolocationRequested = false;
   /** True while a fix (auto or manual) is in flight. */
   let locating = false;
-  /** View ids whose iframe has already been given a src. */
-  const loadedViews = new Set();
+
+  /** viewId -> { map, tileLayer, facilityLayer, userLayer, node } */
+  const mapsByView = new Map();
+  /** cacheKey -> { at, elements } */
+  const facilityCache = new Map();
+  /** cacheKey -> Promise (shared in-flight request) */
+  const inflightRequests = new Map();
+
+  /** '' | 'loading' | 'error' | 'empty' — drives the toolbar status. */
+  let facilityStatus = '';
+  /** Latest parsed facility list (re-rendered on locale change). */
+  let lastElements = [];
+  /** Centre of the last successful/vain query (movement detection). */
+  let lastQueryCenter = null;
+  /** Timestamp of the last 429/504 (back-off window). */
+  let lastFailedAt = 0;
+  /** Surface the facility-error toast at most once per failure sequence. */
+  let facilityErrorToasted = false;
 
   const t = (key) => i18n.t(key);
 
-  function frameFor(viewId) {
-    const id = MAP_FRAMES[viewId];
-    return id ? document.getElementById(id) : null;
+  /* ----------------------------------------------------------------------- */
+  /* Map lifecycle                                                           */
+  /* ----------------------------------------------------------------------- */
+
+  /** Create-once Leaflet map (+ OSM tiles + layer groups) for a view. */
+  function ensureMap(viewId) {
+    if (!L) return null;
+    if (mapsByView.has(viewId)) return mapsByView.get(viewId);
+
+    const id = MAP_IDS[viewId];
+    const node = id ? document.getElementById(id) : null;
+    if (!node) return null;
+
+    const center = coords ? [coords.latitude, coords.longitude] : DEFAULT_CENTER;
+    const map = L.map(node, { zoomControl: true }).setView(center, 13);
+    const tileLayer = addTileLayer(map);
+    const facilityLayer = L.layerGroup().addTo(map);
+    const userLayer = L.layerGroup().addTo(map);
+
+    const entry = { map, tileLayer, facilityLayer, userLayer, node };
+    mapsByView.set(viewId, entry);
+    return entry;
   }
 
-  /** Person mode is Home-only; the Alert map keeps the facilities behaviour. */
-  function urlFor(viewId) {
-    const effectiveMode = viewId === LOCATION_VIEW ? mode : 'facilities';
-    return buildMapUrl(i18n.getMapQuery(), coords, effectiveMode);
+  /** OSM tile layer (attribution control kept per the OSM usage policy). */
+  function addTileLayer(map) {
+    return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
   }
 
-  /** Give a view's iframe its (current) URL — used on first show and refresh. */
-  function load(viewId) {
-    const frame = frameFor(viewId);
-    if (!frame) return;
-    const url = urlFor(viewId);
-    if (frame.getAttribute('src') !== url) frame.setAttribute('src', url);
-    loadedViews.add(viewId);
+  /** Leaflet-unavailable fallback: a link into openstreetmap.org. */
+  function renderFallback() {
+    Object.values(MAP_IDS).forEach((id) => {
+      const node = document.getElementById(id);
+      if (!node || node.dataset.fallbackReady === '1') return;
+      const link = document.createElement('a');
+      link.className = 'map-fallback';
+      link.href = 'https://www.openstreetmap.org/';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'OpenStreetMap';
+      node.appendChild(link);
+      node.dataset.fallbackReady = '1';
+    });
   }
 
-  function refreshLoaded() {
-    loadedViews.forEach(load);
+  /* ----------------------------------------------------------------------- */
+  /* Overpass: query / cache / dedup                                         */
+  /* ----------------------------------------------------------------------- */
+
+  /** Overpass QL for a centre + radius. */
+  function buildOverpassQuery(lat, lng, radius) {
+    const amenities = FACILITY_AMENITIES.join('|');
+    return (
+      `[out:json][timeout:25];\n` +
+      `nwr(around:${radius},${lat},${lng})["amenity"~"^(${amenities})$"];\n` +
+      `out center tags 50;`
+    );
   }
+
+  /** Normalise raw Overpass elements → [{ lat, lng, name, amenity }]. */
+  function parseElements(elements) {
+    if (!Array.isArray(elements)) return [];
+    const out = [];
+    for (const item of elements) {
+      if (!item) continue;
+      const nodeLat = Number(item.lat);
+      const nodeLng = Number(item.lon);
+      const centreLat = Number(item.center?.lat);
+      const centreLng = Number(item.center?.lon);
+      const lat = Number.isFinite(nodeLat) ? nodeLat : centreLat;
+      const lng = Number.isFinite(nodeLng) ? nodeLng : centreLng;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue; // unresolved way/relation
+      const tags = item.tags && typeof item.tags === 'object' ? item.tags : {};
+      out.push({
+        lat,
+        lng,
+        name: typeof tags.name === 'string' ? tags.name : '',
+        amenity: typeof tags.amenity === 'string' ? tags.amenity : ''
+      });
+    }
+    return out;
+  }
+
+  /** Fetch Overpass (primary, then mirror), with a 12 s abort timeout. */
+  async function fetchElements(lat, lng) {
+    const body = `data=${encodeURIComponent(buildOverpassQuery(lat, lng, FACILITY_RADIUS))}`;
+    let lastError = null;
+
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS) : null;
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body,
+          signal: controller ? controller.signal : undefined
+        });
+        if (!response.ok) {
+          const error = new Error(`Overpass HTTP ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
+        const data = await response.json();
+        return Array.isArray(data?.elements) ? data.elements : [];
+      } catch (error) {
+        lastError = error; // try the mirror
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+    throw lastError || new Error('Overpass request failed');
+  }
+
+  /** Cache key ≈ 111 m resolution. */
+  function cacheKey(lat, lng) {
+    return `${lat.toFixed(3)},${lng.toFixed(3)},${FACILITY_RADIUS}`;
+  }
+
+  /**
+   * Load nearby facilities for the current (or default) centre.
+   * Cache → in-flight dedup → network, then render + fit all maps.
+   * @returns {Promise<Array>} the parsed facility list
+   */
+  function loadFacilities({ force = false } = {}) {
+    if (!L) return Promise.resolve([]);
+
+    const centre = coords || { latitude: DEFAULT_CENTER[0], longitude: DEFAULT_CENTER[1] };
+    const lat = centre.latitude;
+    const lng = centre.longitude;
+    const key = cacheKey(lat, lng);
+    const now = Date.now();
+
+    // Recently rate-limited: wait out the back-off and keep current markers.
+    if (!force && lastFailedAt && now - lastFailedAt < BACKOFF_MS) {
+      setFacilityStatus('error');
+      return Promise.resolve(lastElements);
+    }
+
+    const cached = facilityCache.get(key);
+    if (!force && cached && now - cached.at < CACHE_TTL_MS) {
+      lastQueryCenter = { lat, lng };
+      lastElements = cached.elements;
+      renderFacilityMarkers(lastElements);
+      fitAll();
+      setFacilityStatus(lastElements.length ? '' : 'empty');
+      return Promise.resolve(lastElements);
+    }
+
+    const moved = !lastQueryCenter || distanceMeters(lastQueryCenter, { lat, lng }) > MOVE_THRESHOLD_M;
+    if (!force && !moved && lastElements.length) {
+      renderFacilityMarkers(lastElements); // same neighbourhood within TTL — reuse
+      fitAll();
+      return Promise.resolve(lastElements);
+    }
+
+    if (inflightRequests.has(key)) return inflightRequests.get(key);
+
+    setFacilityStatus('loading');
+
+    const promise = fetchElements(lat, lng)
+      .then((elements) => {
+        const parsed = parseElements(elements);
+        facilityCache.set(key, { at: Date.now(), elements: parsed });
+        lastQueryCenter = { lat, lng };
+        lastElements = parsed;
+        lastFailedAt = 0;
+        facilityErrorToasted = false;
+        renderFacilityMarkers(parsed);
+        fitAll();
+        setFacilityStatus(parsed.length ? '' : 'empty');
+        return parsed;
+      })
+      .catch((error) => {
+        const status = Number(error?.status);
+        if (status === 429 || status === 504) lastFailedAt = Date.now();
+        setFacilityStatus('error');
+        if (!facilityErrorToasted) {
+          facilityErrorToasted = true;
+          showToast('map.facilities.error', { type: 'warning' });
+        }
+        return lastElements;
+      })
+      .finally(() => {
+        inflightRequests.delete(key);
+      });
+
+    inflightRequests.set(key, promise);
+    return promise;
+  }
+
+  /* ----------------------------------------------------------------------- */
+  /* Markers + popups (XSS-safe)                                             */
+  /* ----------------------------------------------------------------------- */
+
+  /** Facility popup built entirely with DOM nodes + textContent. */
+  function buildFacilityPopup(facility) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'map-facility-popup';
+
+    const title = document.createElement('div');
+    title.className = 'map-facility-popup__title';
+    title.textContent = facility.name || t('map.facility.medical');
+    wrapper.appendChild(title);
+
+    const typeKey =
+      facility.amenity && FACILITY_AMENITIES.includes(facility.amenity)
+        ? `map.facility.type.${facility.amenity}`
+        : '';
+    const type = document.createElement('div');
+    type.className = 'map-facility-popup__type';
+    type.textContent = typeKey ? t(typeKey) : t('map.facility.medical');
+    wrapper.appendChild(type);
+
+    const directions = document.createElement('a');
+    directions.className = 'map-facility-popup__directions';
+    directions.href = `https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`;
+    directions.target = '_blank';
+    directions.rel = 'noopener noreferrer';
+    directions.textContent = t('map.popup.directions');
+    wrapper.appendChild(directions);
+
+    return wrapper;
+  }
+
+  /** User popup built with a DOM node + textContent. */
+  function buildUserPopup() {
+    const wrapper = document.createElement('div');
+    wrapper.textContent = t('map.popup.you');
+    return wrapper;
+  }
+
+  /** Rebuild facility markers on EVERY created map. */
+  function renderFacilityMarkers(elements) {
+    if (!L) return;
+    const list = Array.isArray(elements) ? elements : [];
+    mapsByView.forEach((entry) => {
+      entry.facilityLayer.clearLayers();
+      list.forEach((facility) => {
+        const marker = L.marker([facility.lat, facility.lng], {
+          icon: L.divIcon({
+            className: 'map-facility-icon',
+            html: FACILITY_ICONS[facility.amenity] || '🏥',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          })
+        });
+        marker.bindPopup(buildFacilityPopup(facility));
+        marker.addTo(entry.facilityLayer);
+      });
+    });
+  }
+
+  /** Rebuild the user marker + accuracy circle on EVERY created map. */
+  function renderUserMarkers() {
+    if (!L) return;
+    mapsByView.forEach((entry) => {
+      entry.userLayer.clearLayers();
+      if (!coords) return;
+
+      const latlng = [coords.latitude, coords.longitude];
+      const marker = L.circleMarker(latlng, {
+        radius: 8,
+        color: '#fff',
+        weight: 2,
+        fillColor: '#2563eb',
+        fillOpacity: 1
+      }).bindPopup(buildUserPopup());
+      marker.addTo(entry.userLayer);
+
+      if (Number.isFinite(accuracy) && accuracy > 0) {
+        L.circle(latlng, {
+          radius: Math.min(accuracy, ACCURACY_CLAMP_M),
+          color: '#2563eb',
+          weight: 1,
+          fillColor: '#2563eb',
+          fillOpacity: 0.12
+        }).addTo(entry.userLayer);
+      }
+    });
+  }
+
+  /** Fit all maps to the union of user + facility markers. */
+  function fitAll() {
+    if (!L) return;
+    mapsByView.forEach((entry) => {
+      const facilityMarkers = entry.facilityLayer.getLayers();
+      const userMarkers = entry.userLayer.getLayers();
+      const all = [...facilityMarkers, ...userMarkers];
+
+      if (all.length > 1) {
+        try {
+          entry.map.fitBounds(L.featureGroup(all).getBounds().pad(0.15), { maxZoom: 17 });
+        } catch {
+          /* non-finite bounds — leave the current view */
+        }
+        return;
+      }
+      if (userMarkers.length) {
+        entry.map.setView(coords ? [coords.latitude, coords.longitude] : DEFAULT_CENTER, 15);
+        return;
+      }
+      if (facilityMarkers.length) {
+        entry.map.fitBounds(L.featureGroup(facilityMarkers).getBounds().pad(0.15), { maxZoom: 17 });
+        return;
+      }
+      entry.map.setView(DEFAULT_CENTER, 13);
+    });
+  }
+
+  /** Re-render markers + fit (used on locale change / external refresh). */
+  function refreshMaps() {
+    renderUserMarkers();
+    renderFacilityMarkers(lastElements);
+    fitAll();
+  }
+
+  /* ----------------------------------------------------------------------- */
+  /* Location seeding + control                                              */
+  /* ----------------------------------------------------------------------- */
 
   /** Seed the marker from the persisted location (before any live fix). */
   function seedFromStored() {
     if (coords) return;
-    const last = location && typeof location.getLastKnown === 'function' ? location.getLastKnown() : null;
+    const last =
+      location && typeof location.getLastKnown === 'function' ? location.getLastKnown() : null;
     if (last && Number.isFinite(last.lat) && Number.isFinite(last.lng)) {
       coords = { latitude: last.lat, longitude: last.lng };
-      mode = 'person';
+      accuracy = Number.isFinite(last.accuracy) ? last.accuracy : null;
     }
   }
 
   function hasStored() {
-    const last = location && typeof location.getLastKnown === 'function' ? location.getLastKnown() : null;
+    const last =
+      location && typeof location.getLastKnown === 'function' ? location.getLastKnown() : null;
     return Boolean(last && Number.isFinite(last.lat) && Number.isFinite(last.lng));
   }
 
@@ -125,75 +470,99 @@ export function createMaps({ bus, i18n, router, location }) {
     return document.getElementById('mapLocationStatus');
   }
 
-  /** Render the button label/action + status pill for the current state. */
+  /** Status text for the facility/location state (or null → empty). */
+  function computeStatus() {
+    if (!L) return null;
+    if (facilityStatus === 'loading') return { key: 'map.facilities.loading', variant: 'info' };
+    if (facilityStatus === 'error') return { key: 'map.facilities.error', variant: 'error' };
+    if (facilityStatus === 'empty') return { key: 'map.facilities.empty', variant: 'muted' };
+    if (coords) {
+      const live = typeof location?.getState === 'function' && location.getState() === 'granted';
+      return { key: live ? 'map.location.updated' : 'map.location.stored', variant: live ? 'ok' : 'info' };
+    }
+    if (hasStored()) return { key: 'map.location.stored', variant: 'info' };
+    return null;
+  }
+
+  /** Set the facility status and repaint the control. */
+  function setFacilityStatus(next) {
+    facilityStatus = next;
+    renderControl();
+  }
+
+  /** Render the Home locate button label/action + status pill. */
   function renderControl() {
     const button = locateButton();
-    if (!button) return;
-    // This module owns the label from now on (dynamic states), so drop the
-    // declarative i18n hook — same ownership pattern as js/ui/header.js.
-    button.removeAttribute('data-i18n');
-    button.removeAttribute('data-i18n-attr');
-
     const status = statusNode();
     const reason =
       location && typeof location.getSupportReason === 'function'
         ? location.getSupportReason()
         : 'unsupported';
 
-    if (reason !== 'ok') {
-      setDisabled(button, true);
+    if (button) {
+      // This module owns the label from now on (dynamic states) — same pattern
+      // as js/ui/header.js — so drop the declarative i18n hooks.
+      button.removeAttribute('data-i18n');
+      button.removeAttribute('data-i18n-attr');
       button.dataset.action = 'locate-me';
-      button.textContent = t('map.locate');
-      button.title = t(
-        reason === 'insecure-context' ? 'error.geolocation.insecure' : 'error.geolocation.unsupported'
-      );
-      if (status) {
-        status.textContent = '';
-        status.className = 'map-toolbar__status';
-      }
-      return;
-    }
 
-    if (locating) {
-      setDisabled(button, true);
-      button.textContent = t('map.locate.locating');
-      button.removeAttribute('title');
-      return;
-    }
-
-    setDisabled(button, false);
-    button.removeAttribute('title');
-
-    if (mode === 'person') {
-      const live = typeof location?.getState === 'function' && location.getState() === 'granted';
-      button.dataset.action = 'show-facilities';
-      button.textContent = t('map.locate.showFacilities');
-      if (status) {
-        status.textContent = t(live ? 'map.location.updated' : 'map.location.stored');
-        status.className = `map-toolbar__status status-pill status-pill--${live ? 'ok' : 'info'}`;
-      }
-      return;
-    }
-
-    button.dataset.action = 'locate-me';
-    button.textContent = t('map.locate');
-    if (status) {
-      if (hasStored()) {
-        status.textContent = t('map.location.stored');
-        status.className = 'map-toolbar__status status-pill status-pill--info';
+      if (reason !== 'ok') {
+        setDisabled(button, true);
+        button.textContent = t('map.locate');
+        button.title = t(
+          reason === 'insecure-context' ? 'error.geolocation.insecure' : 'error.geolocation.unsupported'
+        );
+      } else if (!L) {
+        setDisabled(button, true);
+        button.textContent = t('map.locate');
+        button.removeAttribute('title');
+      } else if (locating) {
+        setDisabled(button, true);
+        button.textContent = t('map.locate.locating');
+        button.removeAttribute('title');
       } else {
+        setDisabled(button, false);
+        button.removeAttribute('title');
+        button.textContent = t('map.locate');
+      }
+    }
+
+    if (status) {
+      const info = computeStatus();
+      if (!info) {
         status.textContent = '';
         status.className = 'map-toolbar__status';
+      } else {
+        status.textContent = t(info.key);
+        status.className = `map-toolbar__status status-pill status-pill--${info.variant}`;
       }
     }
   }
 
-  /** Lazy entry point — called every time a view becomes visible. */
+  /* ----------------------------------------------------------------------- */
+  /* Activation + geolocation                                                */
+  /* ----------------------------------------------------------------------- */
+
+  /** Lazy entry point — called every time a view containing a map is shown. */
   function activate(viewId) {
-    if (!MAP_FRAMES[viewId]) return;
+    if (!MAP_IDS[viewId]) return;
+
+    const entry = ensureMap(viewId);
+    if (entry) {
+      try {
+        entry.map.invalidateSize(); // container was hidden → visible
+      } catch {
+        /* not visible yet — safe to ignore */
+      }
+    }
+
     if (viewId === LOCATION_VIEW) seedFromStored();
-    load(viewId); // fallback/facilities URL if coordinates are not known yet
+
+    renderUserMarkers();
+    loadFacilities();
+    fitAll();
     if (viewId === LOCATION_VIEW) ensureGeolocation();
+    renderControl();
   }
 
   /** Fire the automatic fix once; degrade gracefully when unsupported. */
@@ -201,7 +570,8 @@ export function createMaps({ bus, i18n, router, location }) {
     if (geolocationRequested) return;
     geolocationRequested = true;
 
-    const supported = location && typeof location.isSupported === 'function' ? location.isSupported() : false;
+    const supported =
+      location && typeof location.isSupported === 'function' ? location.isSupported() : false;
     if (!supported) {
       renderControl(); // disables the button with an explanatory title
       return;
@@ -225,34 +595,41 @@ export function createMaps({ bus, i18n, router, location }) {
       });
   }
 
-  /** Toggle back to the facility search. */
-  function showFacilities() {
-    mode = 'facilities';
-    refreshLoaded();
-    renderControl();
-  }
+  /* ----------------------------------------------------------------------- */
+  /* Wiring                                                                  */
+  /* ----------------------------------------------------------------------- */
 
   function init() {
+    if (!L) {
+      if (typeof console !== 'undefined') {
+        console.warn('[maps] Leaflet (window.L) unavailable — map disabled; showing fallback link.');
+      }
+      renderFallback();
+    }
+
     if (router && typeof router.registerActivation === 'function') {
-      Object.keys(MAP_FRAMES).forEach((viewId) => router.registerActivation(viewId, activate));
+      Object.keys(MAP_IDS).forEach((viewId) => router.registerActivation(viewId, activate));
     } else {
       bus.on(EVENT_NAMES.VIEW_CHANGED, (payload) => activate(payload?.viewId));
     }
 
-    // A locale change changes mapQuery — rebuild the URL + re-translate the control.
+    // Locale change: rebuild popups (markers re-bind) + re-translate the control.
     bus.on(EVENT_NAMES.I18N_CHANGED, () => {
-      refreshLoaded();
+      renderFacilityMarkers(lastElements);
+      renderUserMarkers();
       renderControl();
     });
 
-    // A new (stored or live) position switches Home to person mode + a pin.
+    // A new (stored or live) position: update coords/accuracy, markers, refetch.
     bus.on(EVENT_NAMES.LOCATION_CHANGED, (payload) => {
       const position = payload?.position;
       if (!position || !Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
       coords = { latitude: position.lat, longitude: position.lng };
-      mode = 'person';
+      accuracy = Number.isFinite(position.accuracy) ? position.accuracy : null;
       locating = false;
-      refreshLoaded();
+      renderUserMarkers();
+      loadFacilities(); // refetches only when the centre moved > ~250 m
+      fitAll();
       renderControl();
     });
 
@@ -269,16 +646,12 @@ export function createMaps({ bus, i18n, router, location }) {
       event.preventDefault();
       requestFix();
     });
-    delegate(container, 'click', '[data-action="show-facilities"]', (event) => {
-      event.preventDefault();
-      showFacilities();
-    });
 
     seedFromStored();
     renderControl();
   }
 
-  return { init, activate, refreshLoaded, renderControl, buildMapUrl, MAP_FRAMES };
+  return { init, activate, refreshMaps, renderControl, MAP_IDS };
 }
 
 export default createMaps;

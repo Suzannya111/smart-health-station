@@ -14,8 +14,8 @@
  *   - Emit `view:changed` ({ viewId }) so other UI modules (lazy maps, …) can
  *     react without the router knowing about them.
  *   - Expose `registerActivation(viewId, fn)`: a lazy activation hook that runs
- *     every time a given view is shown (used by the maps module to defer the
- *     iframe src until the map's view actually appears).
+ *     every time a given view is shown (used by the maps module to defer map
+ *     creation until the map's view actually appears).
  *
  * Only the foundation DOM helpers are used; nothing is leaked globally.
  */

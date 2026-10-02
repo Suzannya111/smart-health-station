@@ -8,7 +8,7 @@
  *  - `tempTip` / `alertMsg` are now `{threshold}` templates. The literal `36.0`
  *    (the original *test* value) no longer appears in any string; the number is
  *    injected at runtime from `config.thresholds.feverCelsius` (default **37.5**).
- *  - `mapQuery` values are UNCHANGED per locale, because they change map results.
+ *  - The legacy Google Maps query key has been removed (the map is now Leaflet + OSM).
  *  - New namespaced keys cover Settings / BLE / ESP32 status and feedback in all
  *    four locales.
  *  - `LEGACY_KEY_MAP` maps the original key names to their new namespaced
@@ -35,7 +35,6 @@ export const LEGACY_KEY_MAP = Object.freeze({
   motorRotating: 'motor.rotating',
   motorDispensing: 'motor.dispensing',
   mapTitle: 'map.title',
-  mapQuery: 'map.query',
   tempTitle: 'temp.title',
   tempStatusInit: 'temp.status.init',
   tempStatusConnected: 'temp.status.connected',
@@ -81,14 +80,22 @@ export const STRINGS = Object.freeze({
     btnCloseBack: '關閉並返回',
     woundTitle: '傷口處理與處置機構',
     woundSubtitle: '患部檢視完畢後，可驅動馬達 2 發放傷口敷料或包紮耗材',
-    mapQuery: '醫院+診所',
-
-    /* ---- map: recent location ---------------------------------------- */
+    /* ---- map: recent location & nearby facilities -------------------- */
     'map.locate': '📍 定位我的位置',
     'map.locate.locating': '定位中…',
-    'map.locate.showFacilities': '顯示附近醫療機構',
     'map.location.updated': '已更新至你的最新位置',
     'map.location.stored': '顯示上次已知位置',
+    'map.facilities.loading': '載入附近醫療機構…',
+    'map.facilities.error': '無法載入附近醫療機構',
+    'map.facilities.empty': '附近找不到醫療機構',
+    'map.facility.medical': '醫療機構',
+    'map.facility.type.hospital': '醫院',
+    'map.facility.type.clinic': '診所',
+    'map.facility.type.doctors': '醫生',
+    'map.facility.type.pharmacy': '藥房',
+    'map.facility.type.dentist': '牙醫',
+    'map.popup.you': '你的位置',
+    'map.popup.directions': '規劃路線',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': '切換前後鏡頭',
@@ -289,14 +296,22 @@ export const STRINGS = Object.freeze({
     btnCloseBack: '关闭并返回',
     woundTitle: '伤口处理与处置机构',
     woundSubtitle: '患部检视完毕后，可驱动马达 2 发放伤口敷料或包扎耗材',
-    mapQuery: '医院+诊所',
-
-    /* ---- map: recent location ---------------------------------------- */
+    /* ---- map: recent location & nearby facilities -------------------- */
     'map.locate': '📍 定位我的位置',
     'map.locate.locating': '定位中…',
-    'map.locate.showFacilities': '显示附近医疗机构',
     'map.location.updated': '已更新至你的最新位置',
     'map.location.stored': '显示上次已知位置',
+    'map.facilities.loading': '加载附近医疗机构…',
+    'map.facilities.error': '无法加载附近医疗机构',
+    'map.facilities.empty': '附近找不到医疗机构',
+    'map.facility.medical': '医疗机构',
+    'map.facility.type.hospital': '医院',
+    'map.facility.type.clinic': '诊所',
+    'map.facility.type.doctors': '医生',
+    'map.facility.type.pharmacy': '药房',
+    'map.facility.type.dentist': '牙医',
+    'map.popup.you': '你的位置',
+    'map.popup.directions': '规划路线',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': '切换前后摄像头',
@@ -484,14 +499,22 @@ export const STRINGS = Object.freeze({
     btnCloseBack: 'Close and Return',
     woundTitle: 'Wound Care & Dressing',
     woundSubtitle: 'Trigger Motor 2 to dispense wound care dressing materials',
-    mapQuery: 'hospital+clinic',
-
-    /* ---- map: recent location ---------------------------------------- */
+    /* ---- map: recent location & nearby facilities -------------------- */
     'map.locate': '📍 Show my location',
     'map.locate.locating': 'Locating…',
-    'map.locate.showFacilities': 'Show nearby facilities',
     'map.location.updated': 'Updated to your latest location',
     'map.location.stored': 'Showing last known location',
+    'map.facilities.loading': 'Loading nearby facilities…',
+    'map.facilities.error': 'Could not load nearby facilities',
+    'map.facilities.empty': 'No nearby medical facilities found',
+    'map.facility.medical': 'Medical facility',
+    'map.facility.type.hospital': 'Hospital',
+    'map.facility.type.clinic': 'Clinic',
+    'map.facility.type.doctors': 'Doctor',
+    'map.facility.type.pharmacy': 'Pharmacy',
+    'map.facility.type.dentist': 'Dentist',
+    'map.popup.you': 'You are here',
+    'map.popup.directions': 'Directions',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': 'Switch camera',
@@ -684,14 +707,22 @@ export const STRINGS = Object.freeze({
     btnCloseBack: 'Fechar e Voltar',
     woundTitle: 'Tratamento de Feridas',
     woundSubtitle: 'Acione o Motor 2 para dispensar pensos e materiais de tratamento',
-    mapQuery: 'hospital+clinica',
-
-    /* ---- map: recent location ---------------------------------------- */
+    /* ---- map: recent location & nearby facilities -------------------- */
     'map.locate': '📍 Mostrar a minha localização',
     'map.locate.locating': 'A localizar…',
-    'map.locate.showFacilities': 'Mostrar unidades próximas',
     'map.location.updated': 'Atualizado para a sua localização mais recente',
     'map.location.stored': 'A mostrar a última localização conhecida',
+    'map.facilities.loading': 'A carregar unidades próximas…',
+    'map.facilities.error': 'Não foi possível carregar as unidades',
+    'map.facilities.empty': 'Nenhuma unidade de saúde encontrada',
+    'map.facility.medical': 'Unidade de saúde',
+    'map.facility.type.hospital': 'Hospital',
+    'map.facility.type.clinic': 'Clínica',
+    'map.facility.type.doctors': 'Médico',
+    'map.facility.type.pharmacy': 'Farmácia',
+    'map.facility.type.dentist': 'Dentista',
+    'map.popup.you': 'A sua localização',
+    'map.popup.directions': 'Direções',
 
     /* ---- wound: camera switching ------------------------------------- */
     'wound.camera.switch': 'Alternar câmara',
