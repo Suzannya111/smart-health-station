@@ -104,6 +104,7 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': '無法連線至 Gemini 服務（網路或 CORS 限制）。',
     'wound.error.timeout': 'Gemini 服務連線逾時。',
     'wound.error.http': 'Gemini 服務回應錯誤或資料格式無法解析。',
+    'wound.error.busy': 'AI 服務暫時繁忙，請稍後再試。',
     'wound.error.regionUnsupported':
       'Gemini 不支援你所在的地區直接呼叫——請部署／設定中繼（relay），並在「設定 → 進階設定」貼上其網址（傷口辨識 Relay 網址）；在此地區單憑 Gemini API 金鑰無法使用。',
 
@@ -188,7 +189,7 @@ export const STRINGS = Object.freeze({
       'Gemini 由瀏覽器直連，無需中繼服務；Roboflow 需搭配下方中繼網址與金鑰。',
     'settings.advanced.woundRelayUrl': '傷口辨識 Relay 網址',
     'settings.advanced.woundRelayUrlHint':
-      '部署中繼服務（見 relay/README.md）後，將網址（例如 https://smart-care-wound-relay.onrender.com）貼在此處；設定後 Gemini 會改由中繼呼叫，瀏覽器無需 Gemini 金鑰。',
+      '預設已預先設定託管的中繼（https://smart-care-wound-relay.onrender.com），通常不需修改；僅在你自行架設中繼時才需要取代為你的網址。設定後 Gemini 會改由中繼呼叫，瀏覽器無需 Gemini 金鑰。',
     'settings.advanced.geminiApiKey': 'Gemini API 金鑰',
     'settings.advanced.geminiApiKeyHint':
       '已設定中繼網址（Relay）時，請將此欄留空（金鑰只需放在中繼伺服器）；此處輸入的金鑰僅用於直連呼叫，且僅在 Google 支援的地區有效。金鑰僅儲存在此裝置的瀏覽器。',
@@ -300,6 +301,7 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': '无法连接至 Gemini 服务（网络或 CORS 限制）。',
     'wound.error.timeout': 'Gemini 服务连接超时。',
     'wound.error.http': 'Gemini 服务响应错误或数据格式无法解析。',
+    'wound.error.busy': 'AI 服务暂时繁忙，请稍后再试。',
     'wound.error.regionUnsupported':
       'Gemini 不支持你所在的地区直接调用——请部署／设置中继（relay），并在「设置 → 高级设置」粘贴其网址（伤口识别 Relay 网址）；在此地区仅凭 Gemini API 密钥无法使用。',
 
@@ -378,7 +380,7 @@ export const STRINGS = Object.freeze({
       'Gemini 由浏览器直连，无需中继服务；Roboflow 需搭配下方中继网址与密钥。',
     'settings.advanced.woundRelayUrl': '伤口识别 Relay 网址',
     'settings.advanced.woundRelayUrlHint':
-      '部署中继服务（见 relay/README.md）后，将网址（例如 https://smart-care-wound-relay.onrender.com）粘贴在此处；设置后 Gemini 将改由中继调用，浏览器无需 Gemini 密钥。',
+      '默认已预先设置托管的中继（https://smart-care-wound-relay.onrender.com），通常无需修改；仅在你自行搭建中继时才需要替换为你的网址。设置后 Gemini 将改由中继调用，浏览器无需 Gemini 密钥。',
     'settings.advanced.geminiApiKey': 'Gemini API 密钥',
     'settings.advanced.geminiApiKeyHint':
       '已设置中继网址（Relay）时，请将此栏留空（密钥只需放在中继服务器）；此处输入的密钥仅用于直连调用，且仅在 Google 支持的地区有效。密钥仅存储在此设备的浏览器。',
@@ -485,6 +487,8 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': 'Could not reach the Gemini service (network or CORS restriction).',
     'wound.error.timeout': 'The Gemini service request timed out.',
     'wound.error.http': 'Gemini service error, or the response format could not be parsed.',
+    'wound.error.busy':
+      'The AI service is temporarily busy. Please try again shortly.',
     'wound.error.regionUnsupported':
       'Gemini does not support direct calls from your region — deploy/configure the relay and paste its URL in Settings → Advanced (Wound detection relay URL); a Gemini API key alone will not work in this region.',
 
@@ -564,7 +568,7 @@ export const STRINGS = Object.freeze({
       'Gemini runs browser-direct with no relay required; Roboflow uses the relay URL and key below.',
     'settings.advanced.woundRelayUrl': 'Wound detection relay URL',
     'settings.advanced.woundRelayUrlHint':
-      'Deploy the relay (see relay/README.md), then paste its URL here, e.g. https://smart-care-wound-relay.onrender.com. When set, Gemini is called via the relay and no Gemini key is needed in the browser.',
+      'A hosted relay is already preconfigured by default (https://smart-care-wound-relay.onrender.com) and normally does not need changing; only replace it if you self-host your own relay. When set, Gemini is called via the relay and no Gemini key is needed in the browser.',
     'settings.advanced.geminiApiKey': 'Gemini API key',
     'settings.advanced.geminiApiKeyHint':
       'Leave this field EMPTY when a relay URL is set (the key then lives only on the relay server); a key entered here is used only for direct calls and only works from Google-supported regions. It is stored only in this browser.',
@@ -673,6 +677,8 @@ export const STRINGS = Object.freeze({
       'Não foi possível contactar o serviço Gemini (restrição de rede ou CORS).',
     'wound.error.timeout': 'O pedido ao serviço Gemini excedeu o tempo limite.',
     'wound.error.http': 'Erro do serviço Gemini, ou o formato da resposta não pôde ser analisado.',
+    'wound.error.busy':
+      'O serviço de IA está temporariamente ocupado. Tente novamente dentro de instantes.',
     'wound.error.regionUnsupported':
       'O Gemini não suporta chamadas diretas a partir da sua região — implemente/configure o relay e cole o URL em Definições → Avançado (URL do relay de deteção de feridas); uma chave de API Gemini, por si só, não funciona nesta região.',
 
@@ -752,7 +758,7 @@ export const STRINGS = Object.freeze({
       'O Gemini funciona diretamente no navegador, sem relay; o Roboflow usa o URL e a chave abaixo.',
     'settings.advanced.woundRelayUrl': 'URL do relay de deteção de feridas',
     'settings.advanced.woundRelayUrlHint':
-      'Implemente o relay (ver relay/README.md) e cole aqui o seu URL, p. ex. https://smart-care-wound-relay.onrender.com. Quando definido, o Gemini é chamado através do relay e não é necessária nenhuma chave Gemini no navegador.',
+      'Já existe um relay alojado preconfigurado por predefinição (https://smart-care-wound-relay.onrender.com) e normalmente não precisa de ser alterado; substitua-o apenas se alojar o seu próprio relay. Quando definido, o Gemini é chamado através do relay e não é necessária nenhuma chave Gemini no navegador.',
     'settings.advanced.geminiApiKey': 'Chave de API Gemini',
     'settings.advanced.geminiApiKeyHint':
       'Deixe este campo VAZIO quando um URL de relay estiver definido (a chave fica então apenas no servidor de relay); uma chave aqui introduzida é usada apenas para chamadas diretas e só funciona em regiões suportadas pela Google. É guardada apenas neste navegador.',

@@ -62,12 +62,13 @@ export const DEFAULT_WOUND_API_KEY = 'f1JanSsMXOqLmiXQDyTy';
 export const DEFAULT_WOUND_CONFIDENCE = 0.5;
 
 /**
- * Optional Gemini relay URL (e.g. the Render/Vercel relay). Empty means the
- * client calls Gemini directly with a user-supplied key; when set, requests go
+ * Gemini relay URL (e.g. the Render/Vercel relay). Defaults to the project's
+ * hosted relay so wound detection works out of the box; an operator may
+ * override it in Settings → Advanced (e.g. to self-host). When set, requests go
  * through the relay so the Gemini key stays server-side and geo-blocks are
- * bypassed. No credential is embedded here.
+ * bypassed. No credential is embedded here — the relay holds the key.
  */
-export const DEFAULT_WOUND_RELAY_URL = '';
+export const DEFAULT_WOUND_RELAY_URL = 'https://smart-care-wound-relay.onrender.com';
 
 /**
  * Wound-detection AI provider schema.
@@ -429,10 +430,13 @@ function sanitizeConfig(input) {
   config.woundAi.geminiModel =
     String(config.woundAi.geminiModel ?? '').trim() || DEFAULT_GEMINI_MODEL;
   config.woundAi.geminiApiKey = String(config.woundAi.geminiApiKey ?? '').trim(); // '' is valid
-  // Relay URL: trimmed, no trailing slashes; empty OR an http(s) origin is valid
-  // ('' means direct-to-Gemini mode and never raises a validation error).
+  // Relay URL: trimmed, no trailing slashes. An EMPTY or INVALID value falls
+  // back to DEFAULT_WOUND_RELAY_URL (mirroring baseUrl above), so configs saved
+  // before the hosted relay became the default automatically pick it up on the
+  // next load — no manual Settings change is required.
   const relayUrl = String(config.woundAi.relayUrl ?? '').trim().replace(/\/+$/, '');
-  config.woundAi.relayUrl = relayUrl === '' || /^https?:\/\//i.test(relayUrl) ? relayUrl : '';
+  config.woundAi.relayUrl =
+    relayUrl === '' || !/^https?:\/\//i.test(relayUrl) ? DEFAULT_WOUND_RELAY_URL : relayUrl;
 
   return config;
 }

@@ -1,6 +1,6 @@
 // js/wound-detect.js
 
-import { getConfig } from './config.js';
+import { getConfig, DEFAULT_WOUND_RELAY_URL } from './config.js';
 import { i18n } from './i18n/index.js';
 
 // ==========================================
@@ -26,6 +26,7 @@ const FALLBACK_REASON = Object.freeze({
   REGION: 'region', // HTTP 400 + FAILED_PRECONDITION：Gemini 不支援此地區直連
   NOT_FOUND: 'not-found', // HTTP 404：找不到模型或版本
   HTTP: 'http', // 其他非 2xx 狀態（含 429 / 5xx），或 2xx 但內容非 JSON
+  BUSY: 'busy', // HTTP 503：上游 Gemini 暫時過載（高負載），建議稍後重試
   BLOCKED: 'blocked' // 非 JSON（HTML）回應：防火牆 / Cloudflare 封鎖頁
 });
 
@@ -75,8 +76,9 @@ function getWoundAiConfig() {
     confidenceThreshold: Number.isFinite(threshold) ? threshold : DEFAULT_CONFIDENCE_THRESHOLD,
     geminiModel: String(ai.geminiModel || '').trim() || 'gemini-3.8-flash',
     geminiApiKey: String(ai.geminiApiKey || '').trim(),
-    // 中繼網址：去除空白與結尾斜線；空字串代表直連模式。
-    relayUrl: String(ai.relayUrl || '').trim().replace(/\/+$/, '')
+    // 中繼網址：去除空白與結尾斜線；空值時回退至內建的託管中繼（防禦性）。
+    relayUrl:
+      String(ai.relayUrl || '').trim().replace(/\/+$/, '') || DEFAULT_WOUND_RELAY_URL
   };
 }
 
@@ -319,6 +321,11 @@ async function analyzeWithGemini(imageBase64, cfg) {
         throw new WoundDetectionError(FALLBACK_REASON.HTTP, i18n.t('wound.error.http'));
       }
     }
+    // 503：上游 Gemini 暫時過載（高負載）——中繼透傳與直連皆對應 BUSY，
+    // 提示使用者稍後再試（與其他 5xx 的 HTTP 對應區分）。
+    if (response.status === 503) {
+      throw new WoundDetectionError(FALLBACK_REASON.BUSY, i18n.t('wound.error.busy'));
+    }
     // 直連模式的 400：Google 會以 FAILED_PRECONDITION 表示「地區不支援」，
     // 這不是金鑰問題，必須與 AUTH 區分，避免誤導使用者。內文只讀取一次且絕不因非 JSON 丟錯。
     if (!relayMode && response.status === 400) {
@@ -544,6 +551,8 @@ function fallbackHeadline(reason) {
       return '🧭 找不到指定的傷口辨識模型。';
     case FALLBACK_REASON.TRANSPORT:
       return '📡 無法連線至 AI 服務（網路或 CORS 限制）。';
+    case FALLBACK_REASON.BUSY:
+      return `⏳ ${i18n.t('wound.error.busy')}`;
     default:
       return '⚠️ AI 服務暫時無法使用。';
   }
