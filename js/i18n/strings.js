@@ -104,7 +104,7 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': '無法連線至 Gemini 服務（網路或 CORS 限制）。',
     'wound.error.timeout': 'Gemini 服務連線逾時。',
     'wound.error.http': 'Gemini 服務回應錯誤或資料格式無法解析。',
-    'wound.error.busy': 'AI 服務暫時繁忙，請稍後再試。',
+    'wound.error.busy': 'AI 服務暫時繁忙（免費 AI 額度可能暫時用盡），請稍後再試。',
     'wound.error.regionUnsupported':
       'Gemini 不支援你所在的地區直接呼叫——請部署／設定中繼（relay），並在「設定 → 進階設定」貼上其網址（傷口辨識 Relay 網址）；在此地區單憑 Gemini API 金鑰無法使用。',
 
@@ -301,7 +301,7 @@ export const STRINGS = Object.freeze({
     'wound.error.transport': '无法连接至 Gemini 服务（网络或 CORS 限制）。',
     'wound.error.timeout': 'Gemini 服务连接超时。',
     'wound.error.http': 'Gemini 服务响应错误或数据格式无法解析。',
-    'wound.error.busy': 'AI 服务暂时繁忙，请稍后再试。',
+    'wound.error.busy': 'AI 服务暂时繁忙（免费 AI 额度可能暂时用尽），请稍后再试。',
     'wound.error.regionUnsupported':
       'Gemini 不支持你所在的地区直接调用——请部署／设置中继（relay），并在「设置 → 高级设置」粘贴其网址（伤口识别 Relay 网址）；在此地区仅凭 Gemini API 密钥无法使用。',
 
@@ -488,7 +488,7 @@ export const STRINGS = Object.freeze({
     'wound.error.timeout': 'The Gemini service request timed out.',
     'wound.error.http': 'Gemini service error, or the response format could not be parsed.',
     'wound.error.busy':
-      'The AI service is temporarily busy. Please try again shortly.',
+      'The AI service is temporarily busy (the free AI tier may be temporarily out of quota). Please try again shortly.',
     'wound.error.regionUnsupported':
       'Gemini does not support direct calls from your region — deploy/configure the relay and paste its URL in Settings → Advanced (Wound detection relay URL); a Gemini API key alone will not work in this region.',
 
@@ -678,7 +678,7 @@ export const STRINGS = Object.freeze({
     'wound.error.timeout': 'O pedido ao serviço Gemini excedeu o tempo limite.',
     'wound.error.http': 'Erro do serviço Gemini, ou o formato da resposta não pôde ser analisado.',
     'wound.error.busy':
-      'O serviço de IA está temporariamente ocupado. Tente novamente dentro de instantes.',
+      'O serviço de IA está temporariamente ocupado (o nível gratuito de IA pode estar temporariamente sem quota). Tente novamente dentro de instantes.',
     'wound.error.regionUnsupported':
       'O Gemini não suporta chamadas diretas a partir da sua região — implemente/configure o relay e cole o URL em Definições → Avançado (URL do relay de deteção de feridas); uma chave de API Gemini, por si só, não funciona nesta região.',
 

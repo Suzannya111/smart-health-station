@@ -77,7 +77,7 @@ export const DEFAULT_WOUND_RELAY_URL = 'https://smart-care-wound-relay.onrender.
  */
 export const WOUND_PROVIDERS = Object.freeze(['gemini', 'roboflow']);
 export const DEFAULT_WOUND_PROVIDER = 'gemini';
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 /** No embedded key — the user supplies their own in Settings → Advanced. */
 export const DEFAULT_GEMINI_API_KEY = '';
 

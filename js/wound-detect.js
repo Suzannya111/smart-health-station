@@ -25,8 +25,8 @@ const FALLBACK_REASON = Object.freeze({
   AUTH: 'auth', // HTTP 400 / 401 / 403：金鑰無效或權限不足
   REGION: 'region', // HTTP 400 + FAILED_PRECONDITION：Gemini 不支援此地區直連
   NOT_FOUND: 'not-found', // HTTP 404：找不到模型或版本
-  HTTP: 'http', // 其他非 2xx 狀態（含 429 / 5xx），或 2xx 但內容非 JSON
-  BUSY: 'busy', // HTTP 503：上游 Gemini 暫時過載（高負載），建議稍後重試
+  HTTP: 'http', // 其他非 2xx 狀態（例如 5xx），或 2xx 但內容非 JSON
+  BUSY: 'busy', // HTTP 429 / 503：上游 Gemini 配額用盡或暫時過載，建議稍後重試
   BLOCKED: 'blocked' // 非 JSON（HTML）回應：防火牆 / Cloudflare 封鎖頁
 });
 
@@ -321,9 +321,9 @@ async function analyzeWithGemini(imageBase64, cfg) {
         throw new WoundDetectionError(FALLBACK_REASON.HTTP, i18n.t('wound.error.http'));
       }
     }
-    // 503：上游 Gemini 暫時過載（高負載）——中繼透傳與直連皆對應 BUSY，
+    // 429 / 503：上游 Gemini 配額用盡或暫時過載——中繼透傳與直連皆對應 BUSY，
     // 提示使用者稍後再試（與其他 5xx 的 HTTP 對應區分）。
-    if (response.status === 503) {
+    if (response.status === 429 || response.status === 503) {
       throw new WoundDetectionError(FALLBACK_REASON.BUSY, i18n.t('wound.error.busy'));
     }
     // 直連模式的 400：Google 會以 FAILED_PRECONDITION 表示「地區不支援」，
@@ -347,7 +347,7 @@ async function analyzeWithGemini(imageBase64, cfg) {
     if (response.status === 404) {
       throw new WoundDetectionError(FALLBACK_REASON.NOT_FOUND, i18n.t('wound.error.notFound'));
     }
-    // 429 / 5xx 與其他非 2xx 狀態。
+    // 其他 5xx 與其他非 2xx 狀態。
     throw new WoundDetectionError(FALLBACK_REASON.HTTP, i18n.t('wound.error.http'));
   }
 

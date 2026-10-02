@@ -47,12 +47,27 @@ app.use((req, res, next) => {
 
 const GEMINI_API_BASE =
   'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash';
 const GEMINI_TIMEOUT_MS = 45000; // overall budget shared by all attempts
-// Transient-overload handling: retry 503/429 up to 3 TOTAL attempts with a
-// short backoff (~800 ms, then ~1600 ms) before giving up.
-const GEMINI_MAX_ATTEMPTS = 3;
-const GEMINI_RETRY_DELAYS_MS = [800, 1600];
+// Quota buckets are PER MODEL: when one model is daily-quota-exhausted (429)
+// we rotate to the next candidate to restore service. The list is
+// env-overridable via GEMINI_MODELS (comma-separated) for ops flexibility.
+const GEMINI_FALLBACK_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash'
+];
+const GEMINI_MODELS_ENV = String(process.env.GEMINI_MODELS || '')
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean);
+const GEMINI_MODEL_LIST = GEMINI_MODELS_ENV.length
+  ? GEMINI_MODELS_ENV
+  : GEMINI_FALLBACK_MODELS;
+// Upstream statuses that mean "try the next model" (quota / gone / overload).
+const GEMINI_ROTATE_STATUSES = [429, 404, 503];
+// A 503 gets ONE short retry on the SAME model before rotating to the next.
+const GEMINI_RETRY_DELAY_MS = 700;
 
 /** Promisified setTimeout for retry backoff. */
 function sleep(ms) {
@@ -69,12 +84,13 @@ app.post('/gemini-generate', async (req, res) => {
     });
   }
 
-  // Model resolution order: ?model= -> GEMINI_MODEL -> built-in default.
-  const requested = typeof req.query.model === 'string' ? req.query.model : '';
-  const model = requested || process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
-  const target =
-    `${GEMINI_API_BASE}/${encodeURIComponent(model)}:generateContent` +
-    `?key=${encodeURIComponent(apiKey)}`;
+  // Candidate order: ?model= -> GEMINI_MODEL env -> fallback list (deduped).
+  const requested = typeof req.query.model === 'string' ? req.query.model.trim() : '';
+  const envModel = String(process.env.GEMINI_MODEL || '').trim();
+  const candidates = [];
+  [requested, envModel, ...GEMINI_MODEL_LIST].forEach((name) => {
+    if (name && !candidates.includes(name)) candidates.push(name);
+  });
 
   // Forward the body verbatim (express.text already kept it as a raw string).
   const body = typeof req.body === 'string' ? req.body : '';
@@ -83,60 +99,76 @@ app.post('/gemini-generate', async (req, res) => {
   // remaining budget is exhausted; that abort maps to 504 upstream_timeout.
   const deadline = Date.now() + GEMINI_TIMEOUT_MS;
 
+  // The model that produced the response actually returned to the caller.
+  let usedModel = candidates[0] || GEMINI_DEFAULT_MODEL;
+
   try {
     let upstream = null;
     let text = '';
 
-    for (let attempt = 0; attempt < GEMINI_MAX_ATTEMPTS; attempt += 1) {
-      if (attempt > 0) {
-        // Back off before a retry, but only while budget remains.
-        const delay = GEMINI_RETRY_DELAYS_MS[attempt - 1];
-        if (Date.now() + delay >= deadline) break;
-        await sleep(delay);
+    // Walk the candidates in order. Rotate to the next model on quota (429),
+    // missing (404) or overloaded (503); a 503 gets ONE short retry on the
+    // SAME model first. Any other status stops the walk and is returned as-is.
+    for (const candidate of candidates) {
+      const target =
+        `${GEMINI_API_BASE}/${encodeURIComponent(candidate)}:generateContent` +
+        `?key=${encodeURIComponent(apiKey)}`;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (attempt > 0) {
+          // Back off before the single 503 retry, while budget remains.
+          if (Date.now() + GEMINI_RETRY_DELAY_MS >= deadline) break;
+          await sleep(GEMINI_RETRY_DELAY_MS);
+        }
+
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), remaining);
+        try {
+          upstream = await fetch(target, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            body,
+            signal: controller.signal
+          });
+          text = await upstream.text();
+          usedModel = candidate;
+        } finally {
+          clearTimeout(timer);
+        }
+
+        // Retry the SAME model ONCE on 503 only; otherwise stop this model.
+        if (upstream.status === 503 && attempt === 0) continue;
+        break;
       }
 
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) break;
+      if (!upstream) break; // budget exhausted before any upstream response
 
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), remaining);
-      try {
-        upstream = await fetch(target, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json'
-          },
-          body,
-          signal: controller.signal
-        });
-        text = await upstream.text();
-      } finally {
-        clearTimeout(timer);
-      }
-
-      // Retry ONLY transient upstream overload (503/429); never retry other 4xx.
-      if (
-        attempt < GEMINI_MAX_ATTEMPTS - 1 &&
-        (upstream.status === 503 || upstream.status === 429)
-      ) {
-        continue;
-      }
+      // Rotate to the next model ONLY on these statuses; else return this one.
+      if (GEMINI_ROTATE_STATUSES.includes(upstream.status)) continue;
       break;
     }
 
     if (!upstream) {
       // Budget exhausted before any upstream response was obtained.
+      res.setHeader('X-Relay-Model', usedModel);
       return res.status(504).json({ error: 'upstream_timeout' });
     }
 
     res.status(upstream.status);
+    res.setHeader('X-Relay-Model', usedModel);
     res.setHeader(
       'Content-Type',
       upstream.headers.get('content-type') || 'application/json'
     );
     res.send(text);
   } catch (err) {
+    res.setHeader('X-Relay-Model', usedModel);
     if (err && err.name === 'AbortError') {
       return res.status(504).json({ error: 'upstream_timeout' });
     }
