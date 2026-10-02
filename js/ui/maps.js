@@ -42,10 +42,20 @@ const DEFAULT_CENTER = Object.freeze([22.1987, 113.5439]);
 /** Nearby-facility search radius (metres). */
 const FACILITY_RADIUS = 3000;
 
-/** Overpass endpoints — primary first, mirror on failure. */
+/**
+ * Overpass endpoints — primary first, then official load-balanced mirrors.
+ * Every entry below was empirically verified from this machine to return
+ * HTTP 200, a JSON body containing `elements`, and
+ * `Access-Control-Allow-Origin: *` for the exact Macau query (POST). Dead or
+ * region-limited hosts were removed:
+ *   - overpass.kumi.systems   → hung >30 s (AbortError)
+ *   - overpass.private.coffee → hung >30 s (AbortError)
+ *   - overpass.osm.ch         → Switzerland-only extract (0 elements for Macau)
+ */
 const OVERPASS_ENDPOINTS = Object.freeze([
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter'
 ]);
 
 /** Amenities queried from OpenStreetMap. */
@@ -54,13 +64,24 @@ const FACILITY_AMENITIES = Object.freeze(['hospital', 'clinic', 'doctors', 'phar
 /** Facility cache TTL (10 minutes). */
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
-/** Client-side Overpass timeout (server timeout is 25 s). */
-const OVERPASS_TIMEOUT_MS = 12000;
+/**
+ * Per-attempt client timeout for the primary endpoint. The server timeout is
+ * 25 s and slow-but-successful replies were measured at 7–18 s, so the old
+ * 12 s value aborted valid responses before the server answered.
+ */
+const OVERPASS_TIMEOUT_MS = 30000;
+
+/** Shorter per-attempt timeout for alternate mirrors (caps the total wait). */
+const OVERPASS_MIRROR_TIMEOUT_MS = 15000;
+
+/** Hard global budget across every endpoint and retry round; once exceeded, no
+ * further attempts are made so the map never waits indefinitely. */
+const OVERPASS_TOTAL_BUDGET_MS = 60000;
 
 /** Re-fetch only when the centre moved more than this (metres). */
 const MOVE_THRESHOLD_M = 250;
 
-/** Back-off window after an Overpass rate-limit response (429/504). */
+/** Back-off window after a failed Overpass attempt (timeout / 429 / 504). */
 const BACKOFF_MS = 60000;
 
 /** Clamp the accuracy circle so a huge fix never covers the whole city. */
@@ -207,34 +228,65 @@ export function createMaps({ bus, i18n, router, location }) {
     return out;
   }
 
-  /** Fetch Overpass (primary, then mirror), with a 12 s abort timeout. */
+  /**
+   * Fetch Overpass with a bounded retry + mirror strategy.
+   *
+   * - Endpoints are tried in order with a per-attempt abort timeout (30 s for
+   *   the primary, 15 s for alternates) so one slow host can't hang forever.
+   * - A global budget aborts any remaining attempt once exceeded.
+   * - If a full round exhausts every endpoint, ONE retry round runs with the
+   *   starting endpoint rotated, so a different host leads the second pass.
+   *
+   * Rejects only after every attempt of both rounds has failed (or the budget
+   * is exhausted); the caller treats that as the single terminal failure.
+   * @returns {Promise<Array>} raw Overpass elements
+   */
   async function fetchElements(lat, lng) {
     const body = `data=${encodeURIComponent(buildOverpassQuery(lat, lng, FACILITY_RADIUS))}`;
+    const total = OVERPASS_ENDPOINTS.length;
+    const deadline = Date.now() + OVERPASS_TOTAL_BUDGET_MS;
     let lastError = null;
 
-    for (const endpoint of OVERPASS_ENDPOINTS) {
-      const controller = typeof AbortController === 'function' ? new AbortController() : null;
-      const timer = controller ? setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS) : null;
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body,
-          signal: controller ? controller.signal : undefined
-        });
-        if (!response.ok) {
-          const error = new Error(`Overpass HTTP ${response.status}`);
-          error.status = response.status;
-          throw error;
+    for (let round = 0; round < 2; round += 1) {
+      for (let i = 0; i < total; i += 1) {
+        // Round 0 starts at the primary; round 1 rotates the start by one.
+        const index = (i + round) % total;
+        const endpoint = OVERPASS_ENDPOINTS[index];
+
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          throw lastError || new Error('Overpass total budget exhausted');
         }
-        const data = await response.json();
-        return Array.isArray(data?.elements) ? data.elements : [];
-      } catch (error) {
-        lastError = error; // try the mirror
-      } finally {
-        if (timer) clearTimeout(timer);
+
+        const attemptTimeout = Math.min(
+          index === 0 ? OVERPASS_TIMEOUT_MS : OVERPASS_MIRROR_TIMEOUT_MS,
+          remaining
+        );
+
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), attemptTimeout) : null;
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+            signal: controller ? controller.signal : undefined
+          });
+          if (!response.ok) {
+            const error = new Error(`Overpass HTTP ${response.status}`);
+            error.status = response.status;
+            throw error;
+          }
+          const data = await response.json();
+          return Array.isArray(data?.elements) ? data.elements : [];
+        } catch (error) {
+          lastError = error; // try the next endpoint / retry round
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
       }
     }
+
     throw lastError || new Error('Overpass request failed');
   }
 
@@ -298,8 +350,16 @@ export function createMaps({ bus, i18n, router, location }) {
         return parsed;
       })
       .catch((error) => {
+        // Terminal failure — every endpoint across both retry rounds failed (or
+        // the global budget was exhausted). Back off on timeouts (AbortError)
+        // as well as rate-limit/server errors so the next automatic attempt
+        // doesn't immediately hammer a struggling API.
         const status = Number(error?.status);
-        if (status === 429 || status === 504) lastFailedAt = Date.now();
+        const timedOut = error?.name === 'AbortError';
+        if (timedOut || status === 429 || status === 504) lastFailedAt = Date.now();
+        // Deliberately do NOT clear markers or the cache: a transient blip
+        // must never blank an already-rendered map. Only the status pill and a
+        // single one-shot toast reflect the failure.
         setFacilityStatus('error');
         if (!facilityErrorToasted) {
           facilityErrorToasted = true;
@@ -645,6 +705,10 @@ export function createMaps({ bus, i18n, router, location }) {
     delegate(container, 'click', '[data-action="locate-me"]', (event) => {
       event.preventDefault();
       requestFix();
+      // Retry affordance: a click also force-re-attempts facility loading,
+      // bypassing the cache and the back-off window, so a user can recover
+      // from a failed Overpass load without reloading the page.
+      loadFacilities({ force: true });
     });
 
     seedFromStored();
