@@ -36,8 +36,19 @@ export const MAP_IDS = Object.freeze({
 /** The only view that participates in the recent-location feature. */
 const LOCATION_VIEW = 'viewHome';
 
-/** Default map centre when no stored/live location exists (Macau — mirrors js/weather.js). */
-const DEFAULT_CENTER = Object.freeze([22.1987, 113.5439]);
+/**
+ * 澳門科學館座標 [經度, 緯度] — Macau Science Center as [longitude, latitude].
+ * NOTE: Leaflet consumes [latitude, longitude], so this array must NEVER be
+ * handed to L.map/setView/latLng directly; go through DEFAULT_CENTER below.
+ */
+const SCIENCE_CENTER_COORDS = Object.freeze([113.55745, 22.18658]);
+
+/**
+ * Default/recent-location centre when no stored or live fix exists — the Macau
+ * Science Center, converted from SCIENCE_CENTER_COORDS' [lng, lat] into
+ * Leaflet's [lat, lng] order.
+ */
+const DEFAULT_CENTER = Object.freeze([SCIENCE_CENTER_COORDS[1], SCIENCE_CENTER_COORDS[0]]);
 
 /** Nearby-facility search radius (metres). */
 const FACILITY_RADIUS = 3000;
